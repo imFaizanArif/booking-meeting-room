@@ -196,3 +196,4 @@ All endpoints are prefixed with `/api` and require `Authorization: Bearer <supab
 3. **Database**: a `gist` exclusion constraint on `tstzrange(start_time, end_time)`
    makes double-booking impossible even under concurrent requests.
 # booking-room
+# booking-meeting-room
