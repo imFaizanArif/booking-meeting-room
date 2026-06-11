@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Builds
+.next/
+out/
+dist/
+build/
+
+# Env
+.env
+.env.local
+.env*.local
+!.env.example
+
+# Misc
+.DS_Store
+*.log
+.vercel
+.turbo
+.pytest_cache/
+.coverage

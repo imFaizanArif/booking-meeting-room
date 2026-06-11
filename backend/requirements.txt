@@ -1,0 +1,9 @@
+flask==3.1.0
+flask-cors==5.0.0
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+pydantic[email]==2.10.4
+supabase==2.11.0
+pyjwt==2.10.1
+python-dotenv==1.0.1
+gunicorn==23.0.0
