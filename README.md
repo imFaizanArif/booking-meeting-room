@@ -197,3 +197,4 @@ All endpoints are prefixed with `/api` and require `Authorization: Bearer <supab
    makes double-booking impossible even under concurrent requests.
 # booking-room
 # booking-meeting-room
+# booking-meeting-room
