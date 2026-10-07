@@ -39,7 +39,7 @@ def current_context() -> dict[str, str]:
 
 
 def _redact_processor(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
-    return redactor.redact(event_dict)  # type: ignore[no-any-return]
+    return redactor.redact(event_dict)
 
 
 def configure_logging(level: str = "INFO", json: bool = True) -> None:
@@ -66,4 +66,4 @@ def configure_logging(level: str = "INFO", json: bool = True) -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    return structlog.get_logger(name)  # type: ignore[no-any-return]
+    return structlog.get_logger(name)

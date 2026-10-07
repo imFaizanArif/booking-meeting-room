@@ -186,7 +186,7 @@ async def save_channel(
             workspace_id=ctx.workspace_id,
             name=data.name,
             channel_type=data.channel_type,
-            url_secret_ref="pending",
+            url_secret_ref="pending",  # noqa: S106 - placeholder until the secret row exists
             events=data.events,
             is_active=data.is_active,
         )

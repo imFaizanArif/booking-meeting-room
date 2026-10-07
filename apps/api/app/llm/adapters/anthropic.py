@@ -24,6 +24,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import anthropic
+from anthropic.lib.streaming import ParsedBetaTextEvent
 
 from app.llm import errors
 from app.llm.base import ProviderConfig
@@ -215,7 +216,7 @@ class AnthropicAdapter:
         started = time.perf_counter()
         async with self._client.beta.messages.stream(**params) as stream:
             async for event in stream:
-                if getattr(event, "type", None) == "text":
+                if isinstance(event, ParsedBetaTextEvent):
                     yield LLMStreamEvent(type="text_delta", text=event.text)
             final = await stream.get_final_message()
         response = from_anthropic_message(final, int((time.perf_counter() - started) * 1000))

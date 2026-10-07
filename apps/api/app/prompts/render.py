@@ -79,7 +79,7 @@ def preview(source: str, context: dict[str, Any]) -> tuple[str | None, list[str]
         filled = {**context, **{m: f"{{{{{m}}}}}" for m in missing}}
         try:
             return _ENV.from_string(source).render(**filled), missing, None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - preview reports any rendering error to the author
             return None, missing, str(exc)
     try:
         return render(source, context), [], None

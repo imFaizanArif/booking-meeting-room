@@ -6,6 +6,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -41,7 +42,7 @@ _HTTP_CODES = {
 
 
 def _envelope(
-    status: int, code: ErrorCode, message: str, request: Request, details: dict | None = None
+    status: int, code: ErrorCode, message: str, request: Request, details: dict[str, Any] | None = None
 ) -> JSONResponse:
     body = {
         "error": {

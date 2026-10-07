@@ -143,7 +143,8 @@ async def test_provider(ctx: dict[str, Any], provider_id: str, model_name: str |
 
 
 async def send_notification(ctx: dict[str, Any], approval_id: str) -> dict[str, bool]:
-    return await ctx["notifications"].notify_approval(uuid.UUID(approval_id))
+    dispatcher: NotificationDispatcher = ctx["notifications"]
+    return await dispatcher.notify_approval(uuid.UUID(approval_id))
 
 
 class WorkerSettings:

@@ -61,6 +61,8 @@ ignore = ["S101", "S104", "B008", "RUF012", "SIM105", "RUF001", "RUF002", "RUF00
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "BLE", "N"]
+# Enum members such as `secret_accessed = "secret.accessed"` are event names, not credentials.
+"app/core/enums.py" = ["S105"]
 
 [tool.mypy]
 python_version = "3.12"

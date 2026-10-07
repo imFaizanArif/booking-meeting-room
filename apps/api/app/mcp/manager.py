@@ -124,7 +124,7 @@ class MCPConnectionManager:
                 continue
             try:
                 await conn.ping()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - any ping failure means reconnect
                 log.warning("mcp_health_failed", server=conn.spec.slug, error=str(exc))
                 await self._drop(key)
                 await self._reconnect(key, conn.spec)
@@ -137,7 +137,7 @@ class MCPConnectionManager:
             try:
                 await self._open(key, spec)
                 return
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - retried with backoff, then reported as failed
                 log.info("mcp_reconnect_failed", server=spec.slug, attempt=attempt + 1, error=str(exc))
         if self._on_status is not None:
             await self._on_status(spec, ServerStatus.failed, "Reconnect attempts exhausted")

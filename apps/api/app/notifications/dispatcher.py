@@ -128,7 +128,7 @@ class NotificationDispatcher:
                 await notifier.send(url, clean, signing)
                 ok = True
                 break
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - any delivery failure is retried, then recorded
                 log.warning(
                     "notification_failed",
                     channel=channel.name,

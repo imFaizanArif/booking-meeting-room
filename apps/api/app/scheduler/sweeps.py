@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import socket
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import sqlalchemy as sa
 from sqlalchemy import and_, or_, select
@@ -44,11 +44,11 @@ log = get_logger(__name__)
 INSTANCE = f"{socket.gethostname()}:{uuid.uuid4().hex[:6]}"
 
 
-def _next(schedule: Schedule, after: object) -> object:
+def _next(schedule: Schedule, after: datetime) -> datetime:
     return next_fire(
         schedule.kind,
         after=after,
-        cron=schedule.cron,  # type: ignore[arg-type]
+        cron=schedule.cron,
         interval_seconds=schedule.interval_seconds,
         daily_time=schedule.daily_time,
         timezone=schedule.timezone,
@@ -75,7 +75,7 @@ async def fire_due_schedules(queue: JobQueue, limit: int = 20) -> int:
         for schedule in due:
             fire_at = schedule.next_run_at
             assert fire_at is not None
-            schedule.next_run_at = _next(schedule, max(now, fire_at))  # type: ignore[assignment]
+            schedule.next_run_at = _next(schedule, max(now, fire_at))
             try:
                 async with session.begin_nested():
                     await session.execute(

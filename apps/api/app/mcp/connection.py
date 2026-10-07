@@ -12,12 +12,13 @@ import asyncio
 import contextlib
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 import anyio
 from mcp.client.session import ClientSession
 from mcp.shared.exceptions import MCPError
 from mcp.types import PaginatedRequestParams, Tool, ToolListChangedNotification
+from mcp_types import RequestParamsMeta
 
 from app.core.enums import ServerStatus
 from app.core.logging import get_logger
@@ -85,6 +86,7 @@ class MCPConnection:
         self.in_flight = 0
         self._session: ClientSession | None = None
         self._task: asyncio.Task[None] | None = None
+        self._background: set[asyncio.Task[None]] = set()  # strong refs: the loop only keeps weak ones
         self._ready = asyncio.Event()
         self._closing = asyncio.Event()
         self._on_status = on_status
@@ -95,12 +97,14 @@ class MCPConnection:
         if self._on_status is not None:
             try:
                 await self._on_status(self.spec, status, message)
-            except Exception as exc:  # status reporting must never break the connection
+            except Exception as exc:  # noqa: BLE001 - status reporting must never break the connection
                 log.warning("mcp_status_callback_failed", error=str(exc))
 
     async def _on_message(self, message: Any) -> None:
         if isinstance(message, ToolListChangedNotification) and self._on_tools_changed is not None:
-            asyncio.create_task(self._refresh_tools())
+            task = asyncio.create_task(self._refresh_tools())
+            self._background.add(task)
+            task.add_done_callback(self._background.discard)
 
     async def _refresh_tools(self) -> None:
         if self._session is None or self._on_tools_changed is None:
@@ -108,7 +112,7 @@ class MCPConnection:
         try:
             self.tools = {t.name: t for t in await list_all_tools(self._session)}
             await self._on_tools_changed(self.spec)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - a failed background refresh keeps the previous tool list
             log.warning("mcp_tool_refresh_failed", server=self.spec.slug, error=str(exc))
 
     async def _run(self) -> None:
@@ -158,15 +162,18 @@ class MCPConnection:
     def alive(self) -> bool:
         return self._session is not None and self._task is not None and not self._task.done()
 
-    async def close(self, timeout: float = 10.0) -> None:
+    async def close(self, grace_s: float = 10.0) -> None:
         self._closing.set()
         if self._task is not None:
             try:
-                await asyncio.wait_for(asyncio.shield(self._task), timeout)
+                async with asyncio.timeout(grace_s):
+                    await asyncio.shield(self._task)
             except (TimeoutError, asyncio.CancelledError):
                 self._task.cancel()
-            except BaseException:  # noqa: BLE001
-                pass
+            except BaseException as exc:  # noqa: BLE001 - _run already logged and reported the failure
+                log.debug("mcp_connection_closed_with_error", server=self.spec.slug, error=_describe(exc))
+        for task in list(self._background):
+            task.cancel()
 
     async def ping(self) -> None:
         if self._session is None:
@@ -190,7 +197,8 @@ class MCPConnection:
         self.last_used = time.monotonic()
         try:
             async with asyncio.timeout(timeout):
-                result = await self._session.call_tool(name, arguments, meta=meta)
+                # `_meta` is an open map; mypy cannot express RequestParamsMeta's extra_items (PEP 728) yet.
+                result = await self._session.call_tool(name, arguments, meta=cast(RequestParamsMeta | None, meta))
         except TimeoutError as exc:
             raise MCPToolTimeout(
                 f"Tool {name} timed out after {timeout:.0f}s", details={"tool": name, "timeout_s": timeout}

@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import json
 import operator
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from jsonpath_ng.ext import parse as jsonpath_parse
+from jsonpath_ng.ext.parser import parse as _untyped_jsonpath_parse
 from simpleeval import EvalWithCompoundTypes, InvalidExpression
 
 from app.core.enums import ErrorCode
@@ -21,6 +22,10 @@ from app.core.errors import AppError
 
 EXPR_PREFIX = "="
 _MAX_EXPR = 2000
+
+
+# jsonpath-ng ships no annotations; pin the one signature we rely on.
+jsonpath_parse: Callable[[str], Any] = _untyped_jsonpath_parse
 
 
 class ExpressionError(AppError):
@@ -55,7 +60,7 @@ def unwrap(value: Any) -> Any:
     return value
 
 
-_OPS = {
+_OPS: dict[str, Callable[[Any, Any], bool]] = {
     "==": operator.eq,
     "!=": operator.ne,
     ">": operator.gt,

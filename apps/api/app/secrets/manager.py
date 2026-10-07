@@ -25,7 +25,7 @@ from app.core.redaction import redactor
 from app.core.time import utcnow
 from app.models import Secret
 
-SECRET_REF_PREFIX = "secret:"
+SECRET_REF_PREFIX = "secret:"  # noqa: S105 - a ref prefix, not a secret
 
 
 def make_ref(secret_id: uuid.UUID) -> str:

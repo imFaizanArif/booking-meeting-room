@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar
-
 from pydantic import BaseModel, ConfigDict
-
-T = TypeVar("T")
 
 
 class Schema(BaseModel):
@@ -18,7 +14,7 @@ class ORM(Schema):
     model_config = ConfigDict(from_attributes=True, json_schema_serialization_defaults_required=True)
 
 
-class Page(Schema, Generic[T]):
+class Page[T](Schema):
     items: list[T]
     total: int
     limit: int
