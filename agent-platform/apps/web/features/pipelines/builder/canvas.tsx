@@ -73,6 +73,7 @@ export function BuilderCanvas({
 
   const nodes = React.useMemo<PipelineFlowNode[]>(() => {
     const next = new Map<string, { key: unknown[]; node: PipelineFlowNode }>();
+    // eslint-disable-next-line react-hooks/refs -- the callback reads the identity cache below
     const out = graph.nodes.map((n) => {
       const issue = issues[n.id] ?? null;
       const showErrorHandle = isFallback(n.error_policy) || errorSources.has(n.id);
@@ -97,6 +98,7 @@ export function BuilderCanvas({
       next.set(n.id, { key, node });
       return node;
     });
+    // eslint-disable-next-line react-hooks/refs -- see above
     cache.current = next;
     return out;
   }, [graph.nodes, summaries, issues, errorSources, selectedNodes, measured, readOnly]);

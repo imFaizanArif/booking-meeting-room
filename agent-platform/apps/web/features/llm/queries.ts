@@ -29,6 +29,7 @@ export function useModels() {
 export const PROVIDER_TYPES: { value: ProviderType; label: string; description: string }[] = [
   { value: "openai", label: "OpenAI", description: "OpenAI or any OpenAI-compatible endpoint" },
   { value: "anthropic", label: "Anthropic", description: "Anthropic Messages API" },
+  { value: "gemini", label: "Google Gemini", description: "Gemini API (generativelanguage.googleapis.com)" },
   { value: "ollama", label: "Ollama", description: "Local models, no key needed" },
   { value: "fake", label: "Fake", description: "Offline deterministic responses for testing" },
 ];

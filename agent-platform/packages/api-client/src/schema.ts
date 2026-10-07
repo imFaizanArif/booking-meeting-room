@@ -3257,7 +3257,7 @@ export interface components {
          * ProviderType
          * @enum {string}
          */
-        ProviderType: "openai" | "anthropic" | "ollama" | "fake";
+        ProviderType: "openai" | "anthropic" | "ollama" | "gemini" | "fake";
         /** RealtimeToken */
         RealtimeToken: {
             /** Expires In */

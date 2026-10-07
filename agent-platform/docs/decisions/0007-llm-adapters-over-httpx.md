@@ -5,7 +5,9 @@
 ## Decision
 - `AnthropicAdapter` uses the official `anthropic` Python SDK (`AsyncAnthropic`, beta messages
   namespace), with SDK retries disabled.
-- `OpenAIAdapter` and `OllamaAdapter` call the providers' HTTP APIs directly with `httpx`.
+- `OpenAIAdapter`, `GeminiAdapter` (Generative Language API, `generateContent`) and
+  `OllamaAdapter` call the providers' HTTP APIs directly with `httpx`. Gemini's
+  `thoughtSignature` parts are kept in `provider_state` and replayed so tool loops keep working.
 - LiteLLM is not used. No vendor type escapes an adapter: orchestration only sees
   `app.llm.types`.
 

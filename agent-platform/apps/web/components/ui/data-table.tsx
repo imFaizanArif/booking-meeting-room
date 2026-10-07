@@ -83,7 +83,11 @@ export function DataTable<T>({
     return out;
   }, [rows, query, sort, columns, searchText]);
 
-  React.useEffect(() => setPage(0), [query]);
+  const [pageQuery, setPageQuery] = React.useState(query);
+  if (pageQuery !== query) {
+    setPageQuery(query);
+    setPage(0);
+  }
 
   const visible = server ? filtered : filtered.slice(page * pageSize, (page + 1) * pageSize);
   const total = server ? server.total : filtered.length;

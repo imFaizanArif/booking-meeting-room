@@ -26,7 +26,7 @@ const optionalInt = (min: number, max: number) =>
 
 const baseSchema = z.object({
   name: z.string().trim().min(1, "Enter a name").max(200, "Keep the name under 200 characters"),
-  provider_type: z.enum(["openai", "anthropic", "ollama", "fake"]),
+  provider_type: z.enum(["openai", "anthropic", "gemini", "ollama", "fake"]),
   base_url: z
     .string()
     .trim()
