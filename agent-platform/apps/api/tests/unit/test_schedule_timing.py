@@ -38,9 +38,11 @@ def test_cron_is_strictly_after() -> None:
 def test_interval_anchored() -> None:
     anchor = utc(2026, 10, 6, 0, 0)
     assert fire(ScheduleKind.interval, utc(2026, 10, 6, 1, 30), interval_seconds=3600, anchor=anchor) == utc(
-        2026, 10, 6, 2, 0)
+        2026, 10, 6, 2, 0
+    )
     assert fire(ScheduleKind.interval, utc(2026, 10, 6, 2, 0), interval_seconds=3600, anchor=anchor) == utc(
-        2026, 10, 6, 3, 0)
+        2026, 10, 6, 3, 0
+    )
     future_anchor = utc(2026, 12, 1)
     assert fire(ScheduleKind.interval, utc(2026, 10, 6), interval_seconds=60, anchor=future_anchor) == future_anchor
     # Without an anchor the interval counts from `after`.

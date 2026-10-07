@@ -25,7 +25,9 @@ async def report_status(spec: ServerSpec, status: ServerStatus, message: str | N
     async with session_scope() as session:
         await session.execute(sa.update(MCPServer).where(MCPServer.id == spec.server_id).values(**values))
     await publish_workspace_event(
-        spec.workspace_id, EventType.mcp_server_status_changed, server_id=spec.server_id,
+        spec.workspace_id,
+        EventType.mcp_server_status_changed,
+        server_id=spec.server_id,
         payload={"status": status.value, "message": message, "slug": spec.slug},
     )
 

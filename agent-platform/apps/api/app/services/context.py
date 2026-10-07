@@ -38,6 +38,4 @@ class AuthContext:
 
     def require(self, role: Role) -> None:
         if ROLE_RANK[self.role] < ROLE_RANK[role]:
-            raise Forbidden(
-                f"This action needs the {role.value} role", details={"required_role": role.value}
-            )
+            raise Forbidden(f"This action needs the {role.value} role", details={"required_role": role.value})

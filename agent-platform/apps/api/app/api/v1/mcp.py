@@ -62,8 +62,9 @@ async def reconnect_server(server_id: uuid.UUID, ctx: Auth, session: DB) -> Test
 
 
 @router.get("/tools", response_model=list[MCPToolOut])
-async def list_tools(ctx: Auth, session: DB, server_id: uuid.UUID | None = None,
-                     include_stale: bool = True) -> list[MCPToolOut]:
+async def list_tools(
+    ctx: Auth, session: DB, server_id: uuid.UUID | None = None, include_stale: bool = True
+) -> list[MCPToolOut]:
     return await service.list_tools(session, ctx, server_id, include_stale)
 
 

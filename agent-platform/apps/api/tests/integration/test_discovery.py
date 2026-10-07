@@ -22,8 +22,17 @@ from app.workers import worker
 
 async def _server(ctx: AuthContext, slug: str, transport: TransportType, **values: Any) -> MCPServer:
     async with session_scope() as session:
-        row = MCPServer(workspace_id=ctx.workspace_id, slug=slug, name=slug, transport=transport,
-                        isolation=IsolationMode.shared, is_active=True, env_refs={}, header_refs={}, **values)
+        row = MCPServer(
+            workspace_id=ctx.workspace_id,
+            slug=slug,
+            name=slug,
+            transport=transport,
+            isolation=IsolationMode.shared,
+            is_active=True,
+            env_refs={},
+            header_refs={},
+            **values,
+        )
         session.add(row)
         await session.flush()
         row.config_hash = compute_config_hash(row)
@@ -45,8 +54,14 @@ async def manager() -> AsyncIterator[MCPConnectionManager]:
 @pytest.fixture
 async def servers(operator_ctx: AuthContext, jobs_server: str) -> AsyncIterator[dict[str, MCPServer]]:
     made = {
-        "stdio": await _server(operator_ctx, "disc_calendar", TransportType.stdio, command=sys.executable,
-                               args=["-m", "mock_mcp.calendar_server"], command_confirmed_at=utcnow()),
+        "stdio": await _server(
+            operator_ctx,
+            "disc_calendar",
+            TransportType.stdio,
+            command=sys.executable,
+            args=["-m", "mock_mcp.calendar_server"],
+            command_confirmed_at=utcnow(),
+        ),
         "http": await _server(operator_ctx, "disc_jobs", TransportType.streamable_http, url=jobs_server),
     }
     yield made
@@ -55,7 +70,8 @@ async def servers(operator_ctx: AuthContext, jobs_server: str) -> AsyncIterator[
 
 
 async def test_new_tools_default_disabled_and_gated_unless_read_only(
-    servers: dict[str, MCPServer], manager: MCPConnectionManager,
+    servers: dict[str, MCPServer],
+    manager: MCPConnectionManager,
 ) -> None:
     for kind in ("stdio", "http"):
         result = await worker.discover_server({"connections": manager}, str(servers[kind].id))
@@ -71,16 +87,24 @@ async def test_new_tools_default_disabled_and_gated_unless_read_only(
     read_only = calendar["check_availability"]
     assert (read_only.is_read_only, read_only.requires_approval, read_only.risk_level) == (True, False, RiskLevel.low)
     not_destructive = calendar["create_event"]  # destructiveHint=false, but still a write
-    assert (not_destructive.is_read_only, not_destructive.is_destructive, not_destructive.requires_approval,
-            not_destructive.risk_level) == (False, False, True, RiskLevel.medium)
+    assert (
+        not_destructive.is_read_only,
+        not_destructive.is_destructive,
+        not_destructive.requires_approval,
+        not_destructive.risk_level,
+    ) == (False, False, True, RiskLevel.medium)
     destructive = jobs["submit_proposal"]
     assert (destructive.is_destructive, destructive.requires_approval, destructive.risk_level) == (
-        True, True, RiskLevel.high)
+        True,
+        True,
+        RiskLevel.high,
+    )
     assert jobs["search_jobs"].requires_approval is False
 
 
 async def test_removed_and_renamed_tools_become_stale_and_flags_survive(
-    servers: dict[str, MCPServer], manager: MCPConnectionManager,
+    servers: dict[str, MCPServer],
+    manager: MCPConnectionManager,
 ) -> None:
     server = servers["stdio"]
     async with session_scope() as session:
@@ -95,8 +119,9 @@ async def test_removed_and_renamed_tools_become_stale_and_flags_survive(
 
     # An operator relaxes a flag; rediscovery must not overwrite it.
     async with session_scope() as session:
-        tool = await session.scalar(select(MCPTool).where(MCPTool.server_id == server.id,
-                                                          MCPTool.name == "create_event"))
+        tool = await session.scalar(
+            select(MCPTool).where(MCPTool.server_id == server.id, MCPTool.name == "create_event")
+        )
         assert tool is not None
         tool.requires_approval = False
         tool.is_enabled = True
@@ -113,8 +138,11 @@ async def test_removed_and_renamed_tools_become_stale_and_flags_survive(
     assert not tools["check_availability_v2"].is_stale and not tools["check_availability_v2"].is_enabled
 
     # The tool comes back with a changed schema: un-staled, hash updated, operator flags intact.
-    changed = [t.model_copy(update={"input_schema": {**t.input_schema, "description": "v2"}})
-               for t in live if t.name == "create_event"]
+    changed = [
+        t.model_copy(update={"input_schema": {**t.input_schema, "description": "v2"}})
+        for t in live
+        if t.name == "create_event"
+    ]
     before_hash = tools["create_event"].schema_hash
     async with session_scope() as session:
         row = await session.get(MCPServer, server.id)

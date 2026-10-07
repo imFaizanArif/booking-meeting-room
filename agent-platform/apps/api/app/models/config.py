@@ -63,9 +63,7 @@ class LLMModel(IdMixin, TimestampMixin, WorkspaceScoped, Base):
     __tablename__ = "llm_models"
     __table_args__ = (sa.UniqueConstraint("provider_id", "model_name"),)
 
-    provider_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("llm_providers.id", ondelete="CASCADE"), index=True
-    )
+    provider_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("llm_providers.id", ondelete="CASCADE"), index=True)
     model_name: Mapped[str] = mapped_column(sa.String(200))
     display_name: Mapped[str] = mapped_column(sa.String(200))
     context_window: Mapped[int] = mapped_column(default=8192)
@@ -121,9 +119,7 @@ class MCPTool(IdMixin, TimestampMixin, WorkspaceScoped, Base):
     __tablename__ = "mcp_tools"
     __table_args__ = (sa.UniqueConstraint("server_id", "name"),)
 
-    server_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("mcp_servers.id", ondelete="CASCADE"), index=True
-    )
+    server_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("mcp_servers.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(sa.String(200))
     title: Mapped[str | None] = mapped_column(sa.String(300))
     description: Mapped[str | None] = mapped_column(sa.Text)
@@ -155,9 +151,7 @@ class PromptTemplateVersion(IdMixin, TimestampMixin, Base):
     __tablename__ = "prompt_template_versions"
     __table_args__ = (sa.UniqueConstraint("template_id", "version"),)
 
-    template_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("prompt_templates.id", ondelete="CASCADE"), index=True
-    )
+    template_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("prompt_templates.id", ondelete="CASCADE"), index=True)
     version: Mapped[int]
     body: Mapped[str] = mapped_column(sa.Text)
     variables: Mapped[list[Any]] = mapped_column(default=list, server_default="[]")

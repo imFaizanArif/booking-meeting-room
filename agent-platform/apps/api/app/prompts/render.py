@@ -44,23 +44,23 @@ def referenced_variables(source: str) -> set[str]:
     try:
         return set(meta.find_undeclared_variables(_ENV.parse(source)))
     except TemplateSyntaxError as exc:
-        raise TemplateError(f"Template syntax error on line {exc.lineno}: {exc.message}",
-                            details={"line": exc.lineno}) from exc
+        raise TemplateError(
+            f"Template syntax error on line {exc.lineno}: {exc.message}", details={"line": exc.lineno}
+        ) from exc
 
 
 def render(source: str, context: dict[str, Any]) -> str:
     missing = sorted(referenced_variables(source) - set(context))
     if missing:
-        raise TemplateError(
-            f"Missing template variables: {', '.join(missing)}", details={"missing": missing}
-        )
+        raise TemplateError(f"Missing template variables: {', '.join(missing)}", details={"missing": missing})
     try:
         out = _ENV.from_string(source).render(**context)
     except UndefinedError as exc:
         raise TemplateError(f"Template references an undefined value: {exc.message}") from exc
     except TemplateSyntaxError as exc:
-        raise TemplateError(f"Template syntax error on line {exc.lineno}: {exc.message}",
-                            details={"line": exc.lineno}) from exc
+        raise TemplateError(
+            f"Template syntax error on line {exc.lineno}: {exc.message}", details={"line": exc.lineno}
+        ) from exc
     except Exception as exc:  # SecurityError, TypeError inside expressions
         raise TemplateError(f"Template failed to render: {exc}") from exc
     if len(out) > _MAX_OUTPUT:

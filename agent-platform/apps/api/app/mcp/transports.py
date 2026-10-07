@@ -82,8 +82,12 @@ class SseLegacyTransport:
     async def open(self) -> AsyncIterator[Streams]:
         url = self.spec.url or ""
         await guard_url(url)
-        async with sse_client(url, headers=self.spec.headers, timeout=self.spec.connect_timeout_s,
-                              sse_read_timeout=max(self.spec.call_timeout_s, 60.0)) as streams:
+        async with sse_client(
+            url,
+            headers=self.spec.headers,
+            timeout=self.spec.connect_timeout_s,
+            sse_read_timeout=max(self.spec.call_timeout_s, 60.0),
+        ) as streams:
             yield streams
 
 

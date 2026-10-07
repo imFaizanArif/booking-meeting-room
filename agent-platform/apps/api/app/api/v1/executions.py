@@ -25,11 +25,17 @@ router = APIRouter(prefix="/executions", tags=["executions"])
 
 
 @router.get("", response_model=Page[ExecutionOut])
-async def list_executions(ctx: Auth, session: DB, status: list[ExecutionStatus] | None = Query(default=None),
-                          pipeline_id: uuid.UUID | None = None, limit: int = Query(50, le=200),
-                          offset: int = 0) -> Page[ExecutionOut]:
-    rows, total = await service.list_executions(session, ctx, status=status, pipeline_id=pipeline_id,
-                                                limit=limit, offset=offset)
+async def list_executions(
+    ctx: Auth,
+    session: DB,
+    status: list[ExecutionStatus] | None = Query(default=None),
+    pipeline_id: uuid.UUID | None = None,
+    limit: int = Query(50, le=200),
+    offset: int = 0,
+) -> Page[ExecutionOut]:
+    rows, total = await service.list_executions(
+        session, ctx, status=status, pipeline_id=pipeline_id, limit=limit, offset=offset
+    )
     return Page(items=await execution_outs(session, [r for r, _ in rows]), total=total, limit=limit, offset=offset)
 
 
@@ -50,8 +56,9 @@ async def get_execution(execution_id: uuid.UUID, ctx: Auth, session: DB) -> Exec
 
 
 @router.get("/{execution_id}/events", response_model=list[ExecutionEventOut])
-async def list_execution_events(execution_id: uuid.UUID, ctx: Auth, session: DB, after_seq: int = 0,
-                                limit: int = Query(500, le=2000)) -> list[ExecutionEventOut]:
+async def list_execution_events(
+    execution_id: uuid.UUID, ctx: Auth, session: DB, after_seq: int = 0, limit: int = Query(500, le=2000)
+) -> list[ExecutionEventOut]:
     rows = await service.list_events(session, ctx, execution_id, after_seq, limit)
     return [ExecutionEventOut.model_validate(r, from_attributes=True) for r in rows]
 
@@ -66,5 +73,3 @@ async def control_execution(execution_id: uuid.UUID, data: ControlIn, ctx: Auth,
 async def restart_execution(execution_id: uuid.UUID, ctx: Auth, session: DB) -> ExecutionOut:
     execution = await service.restart(session, ctx, execution_id)
     return (await execution_outs(session, [execution]))[0]
-
-

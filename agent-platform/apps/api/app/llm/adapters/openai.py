@@ -44,8 +44,7 @@ def to_openai_messages(req: LLMRequest) -> list[dict[str, Any]]:
             item: dict[str, Any] = {"role": "assistant", "content": msg.content}
             if msg.tool_calls:
                 item["tool_calls"] = [
-                    {"id": c.id, "type": "function",
-                     "function": {"name": c.name, "arguments": json.dumps(c.arguments)}}
+                    {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": json.dumps(c.arguments)}}
                     for c in msg.tool_calls
                 ]
             out.append(item)
@@ -56,8 +55,10 @@ def to_openai_messages(req: LLMRequest) -> list[dict[str, Any]]:
 
 def to_openai_tools(req: LLMRequest) -> list[dict[str, Any]]:
     return [
-        {"type": "function",
-         "function": {"name": t.name, "description": t.description[:1024], "parameters": t.input_schema}}
+        {
+            "type": "function",
+            "function": {"name": t.name, "description": t.description[:1024], "parameters": t.input_schema},
+        }
         for t in req.tools
     ]
 
@@ -99,8 +100,11 @@ class OpenAIAdapter(HttpAdapter):
         if req.response_format is not None:
             payload["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": req.response_format.name, "schema": req.response_format.json_schema,
-                                "strict": False},
+                "json_schema": {
+                    "name": req.response_format.name,
+                    "schema": req.response_format.json_schema,
+                    "strict": False,
+                },
             }
         payload.update(req.extras.get("openai") or {})
         return payload
@@ -117,8 +121,11 @@ class OpenAIAdapter(HttpAdapter):
         choice = choices[0]
         message = choice.get("message") or {}
         calls = [
-            ToolCallRequest(id=c.get("id") or f"call_{i}", name=c["function"]["name"],
-                            arguments=parse_arguments(c["function"].get("arguments")))
+            ToolCallRequest(
+                id=c.get("id") or f"call_{i}",
+                name=c["function"]["name"],
+                arguments=parse_arguments(c["function"].get("arguments")),
+            )
             for i, c in enumerate(message.get("tool_calls") or [])
         ]
         usage = body.get("usage") or {}

@@ -21,8 +21,11 @@ from tests.helpers import (
     submit_calls,
 )
 
-EDITED = {"job_id": "job-101", "hourly_rate": 99,
-          "cover_letter": "Edited by the reviewer: concise, specific and with the right rate."}
+EDITED = {
+    "job_id": "job-101",
+    "hourly_rate": 99,
+    "cover_letter": "Edited by the reviewer: concise, specific and with the right rate.",
+}
 
 
 def _assistant_submit_calls(values: dict[str, Any]) -> list[dict[str, Any]]:
@@ -35,7 +38,9 @@ def _tool_results(values: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 async def test_edit_then_approve_rewrites_history(
-    operator_ctx: AuthContext, runners: RunnerFactory, checkpointer: Any,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    checkpointer: Any,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     assert await runners.new().run(execution_id) == ExecutionStatus.paused_for_review
@@ -67,8 +72,12 @@ async def test_edit_with_invalid_arguments_is_refused(operator_ctx: AuthContext,
     await runners.new().run(execution_id)
     approval = await pending_approval(execution_id)
     try:
-        await decide_as(operator_ctx, approval.id, DecisionAction.edit,
-                        edited_arguments={"job_id": "job-101", "hourly_rate": "lots"})
+        await decide_as(
+            operator_ctx,
+            approval.id,
+            DecisionAction.edit,
+            edited_arguments={"job_id": "job-101", "hourly_rate": "lots"},
+        )
     except ValidationFailed as exc:
         fields = {f["field"] for f in exc.details["fields"]}
         assert {"hourly_rate", "cover_letter"} <= fields
@@ -78,7 +87,9 @@ async def test_edit_with_invalid_arguments_is_refused(operator_ctx: AuthContext,
 
 
 async def test_reject_returns_structured_result_and_never_executes(
-    operator_ctx: AuthContext, runners: RunnerFactory, checkpointer: Any,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    checkpointer: Any,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     await runners.new().run(execution_id)
@@ -102,7 +113,9 @@ async def test_reject_returns_structured_result_and_never_executes(
 
 
 async def test_regenerate_supersedes_and_second_proposal_can_be_approved(
-    operator_ctx: AuthContext, runners: RunnerFactory, checkpointer: Any,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    checkpointer: Any,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     await runners.new().run(execution_id)
@@ -123,8 +136,7 @@ async def test_regenerate_supersedes_and_second_proposal_can_be_approved(
 
     await decide_as(operator_ctx, second.id, DecisionAction.approve)
     assert await runners.new().run(execution_id) == ExecutionStatus.completed
-    assert [c.status for c in await submit_calls(execution_id)] == [ToolCallStatus.cancelled,
-                                                                     ToolCallStatus.completed]
+    assert [c.status for c in await submit_calls(execution_id)] == [ToolCallStatus.cancelled, ToolCallStatus.completed]
     [effect] = effects("jobs")
     assert effect["result"]["status"] == "submitted"
     row = await db_execution(execution_id)

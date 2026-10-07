@@ -38,7 +38,7 @@ def parse_structured(text: str | None, schema: dict[str, Any]) -> Any:
     raw = (text or "").strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
-        raw = raw[raw.find("\n") + 1:] if "\n" in raw else raw
+        raw = raw[raw.find("\n") + 1 :] if "\n" in raw else raw
     try:
         value = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -65,8 +65,11 @@ class LLMExecutor:
         messages.append(UserMessage(content=render(cfg.user_prompt, context) if cfg.user_prompt else "Continue."))
         budget = ContextBudget(max_input_tokens=max(1000, snap.context_window - (snap.max_tokens or 4096)))
         request = LLMRequest(
-            model=snap.model_name, messages=fit_messages(messages, [], budget), temperature=snap.temperature,
-            max_tokens=snap.max_tokens, extras=snap.extras,
+            model=snap.model_name,
+            messages=fit_messages(messages, [], budget),
+            temperature=snap.temperature,
+            max_tokens=snap.max_tokens,
+            extras=snap.extras,
             response_format=ResponseFormat(json_schema=schema) if use_native_schema and schema else None,
         )
         response = await rt.llm.generate(node.id, request)
@@ -86,16 +89,23 @@ class MCPToolExecutor:
             raise AppError("Tool arguments must resolve to an object", code=ErrorCode.tool_arguments_invalid)
         index = int(extra.get("__index__", 0))
         outcome = await rt.tools.route(
-            node_id=node.id, call_seq=index, name=node.config.tool, arguments=arguments,
-            allowlist=[node.config.tool], in_map=node.map is not None,
+            node_id=node.id,
+            call_seq=index,
+            name=node.config.tool,
+            arguments=arguments,
+            allowlist=[node.config.tool],
+            in_map=node.map is not None,
             context_summary=f"Pipeline step '{node.name}' wants to call {node.config.tool}.",
         )
         if outcome.status == RouteStatus.completed:
             return outcome.structured
         retryable = outcome.status == RouteStatus.failed and outcome.error_code in (
-            ErrorCode.mcp_connection_failed, ErrorCode.tool_timeout)
+            ErrorCode.mcp_connection_failed,
+            ErrorCode.tool_timeout,
+        )
         raise ToolCallFailed(
             f"{node.config.tool} {outcome.status.value}: {outcome.content[:300]}",
-            code=outcome.error_code or ErrorCode.mcp_tool_error, retryable=retryable,
+            code=outcome.error_code or ErrorCode.mcp_tool_error,
+            retryable=retryable,
             details={"tool": node.config.tool, "status": outcome.status.value},
         )

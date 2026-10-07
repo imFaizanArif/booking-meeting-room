@@ -110,8 +110,11 @@ def validate_graph(graph: PipelineGraph, *, known_tools: set[str] | None = None)
         source = graph.node(e.source)
         if e.branch in (EdgeBranch.true, EdgeBranch.false) and source.type != NodeType.condition:
             result.error("true/false branches can only leave a Condition node", edge_id=e.id)
-        if e.branch == EdgeBranch.error and source.error_policy.mode != ErrorMode.fallback \
-                and source.error_policy.then != "fallback":
+        if (
+            e.branch == EdgeBranch.error
+            and source.error_policy.mode != ErrorMode.fallback
+            and source.error_policy.then != "fallback"
+        ):
             result.warn("Error edge is only used when the node's error policy falls back", node_id=e.source)
         incoming[e.target].append(e.source)
         outgoing[e.source].append(e)
@@ -131,17 +134,19 @@ def validate_graph(graph: PipelineGraph, *, known_tools: set[str] | None = None)
         if node.map is not None:
             if node.type not in MAPPABLE:
                 result.error(f"{node.type.value} nodes cannot be mapped (fan-out)", node_id=node.id)
-            elif (msg := check_syntax(node.map.over)):
+            elif msg := check_syntax(node.map.over):
                 result.error(f"map.over: {msg}", node_id=node.id)
         if isinstance(node, ConditionNode):
-            if (msg := check_syntax(node.config.expression)):
+            if msg := check_syntax(node.config.expression):
                 result.error(f"expression: {msg}", node_id=node.id)
             branches = {e.branch for e in outgoing[node.id]}
             if not branches & {EdgeBranch.true, EdgeBranch.false}:
                 result.error("Condition needs at least one true or false edge", node_id=node.id)
         if isinstance(node, (LLMNode, AgentNode)):
-            for label, source in (("user_prompt", node.config.user_prompt),
-                                  ("system_prompt", node.config.system_prompt.inline or "")):
+            for label, source in (
+                ("user_prompt", node.config.user_prompt),
+                ("system_prompt", node.config.system_prompt.inline or ""),
+            ):
                 try:
                     referenced_variables(source)
                 except TemplateError as exc:

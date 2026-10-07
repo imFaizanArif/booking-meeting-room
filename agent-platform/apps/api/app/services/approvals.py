@@ -20,15 +20,27 @@ async def _enrich(session: AsyncSession, rows: list[Approval]) -> list[ApprovalO
     if not rows:
         return []
     exec_ids = {r.execution_id for r in rows}
-    pipelines = dict((await session.execute(
-        select(Execution.id, Pipeline.name).join(Pipeline, Pipeline.id == Execution.pipeline_id)
-        .where(Execution.id.in_(exec_ids)))).all())
+    pipelines = dict(
+        (
+            await session.execute(
+                select(Execution.id, Pipeline.name)
+                .join(Pipeline, Pipeline.id == Execution.pipeline_id)
+                .where(Execution.id.in_(exec_ids))
+            )
+        ).all()
+    )
     call_ids = [r.tool_call_id for r in rows if r.tool_call_id]
-    calls = {c.id: c for c in (await session.scalars(select(ToolCall).where(ToolCall.id.in_(call_ids)))).all()} \
-        if call_ids else {}
+    calls = (
+        {c.id: c for c in (await session.scalars(select(ToolCall).where(ToolCall.id.in_(call_ids)))).all()}
+        if call_ids
+        else {}
+    )
     user_ids = {r.decided_by for r in rows if r.decided_by}
-    emails = dict((await session.execute(select(User.id, User.email).where(User.id.in_(user_ids)))).all()) \
-        if user_ids else {}
+    emails = (
+        dict((await session.execute(select(User.id, User.email).where(User.id.in_(user_ids)))).all())
+        if user_ids
+        else {}
+    )
     out = []
     for row in rows:
         item = ApprovalOut.model_validate(row)
@@ -42,9 +54,15 @@ async def _enrich(session: AsyncSession, rows: list[Approval]) -> list[ApprovalO
     return out
 
 
-async def list_approvals(session: AsyncSession, ctx: AuthContext, *, status: ApprovalStatus | None = None,
-                         execution_id: uuid.UUID | None = None, limit: int = 100,
-                         offset: int = 0) -> tuple[list[ApprovalOut], int]:
+async def list_approvals(
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    status: ApprovalStatus | None = None,
+    execution_id: uuid.UUID | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> tuple[list[ApprovalOut], int]:
     query = select(Approval).where(Approval.workspace_id == ctx.workspace_id)
     if status is not None:
         query = query.where(Approval.status == status)
@@ -57,8 +75,9 @@ async def list_approvals(session: AsyncSession, ctx: AuthContext, *, status: App
 
 
 async def approval_detail(session: AsyncSession, ctx: AuthContext, approval_id: uuid.UUID) -> ApprovalDetail:
-    row = await session.scalar(select(Approval).where(Approval.id == approval_id,
-                                                      Approval.workspace_id == ctx.workspace_id))
+    row = await session.scalar(
+        select(Approval).where(Approval.id == approval_id, Approval.workspace_id == ctx.workspace_id)
+    )
     if row is None:
         raise NotFound("Approval not found")
     base = (await _enrich(session, [row]))[0]
@@ -72,9 +91,18 @@ async def approval_detail(session: AsyncSession, ctx: AuthContext, approval_id: 
                 snapshot = ConfigSnapshot.model_validate(execution.config_snapshot)
                 tool = snapshot.tools.get(call.namespaced_name)
                 detail.input_schema = tool.input_schema if tool else None
-            prior = (await session.scalars(select(ToolCall).where(
-                ToolCall.execution_id == row.execution_id, ToolCall.node_id == row.node_id,
-                ToolCall.call_seq < call.call_seq).order_by(ToolCall.call_seq.desc()).limit(8))).all()
+            prior = (
+                await session.scalars(
+                    select(ToolCall)
+                    .where(
+                        ToolCall.execution_id == row.execution_id,
+                        ToolCall.node_id == row.node_id,
+                        ToolCall.call_seq < call.call_seq,
+                    )
+                    .order_by(ToolCall.call_seq.desc())
+                    .limit(8)
+                )
+            ).all()
             detail.context = [_step(c) for c in reversed(prior)]
     chain: list[Approval] = []
     cursor = row
@@ -93,5 +121,10 @@ async def approval_detail(session: AsyncSession, ctx: AuthContext, approval_id: 
 def _step(call: ToolCall) -> dict[str, Any]:
     result = call.result or {}
     preview = (result.get("content") or "")[:600]
-    return {"tool": call.namespaced_name, "status": call.status.value, "arguments": call.arguments,
-            "result_preview": preview, "at": call.created_at.isoformat()}
+    return {
+        "tool": call.namespaced_name,
+        "status": call.status.value,
+        "arguments": call.arguments,
+        "result_preview": preview,
+        "at": call.created_at.isoformat(),
+    }

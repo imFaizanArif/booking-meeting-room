@@ -70,16 +70,17 @@ def to_anthropic_messages(req: LLMRequest) -> tuple[str | None, list[dict[str, A
                 if msg.content:
                     blocks.append({"type": "text", "text": msg.content})
                 blocks.extend(
-                    {"type": "tool_use", "id": c.id, "name": c.name, "input": c.arguments}
-                    for c in msg.tool_calls
+                    {"type": "tool_use", "id": c.id, "name": c.name, "input": c.arguments} for c in msg.tool_calls
                 )
             out.append({"role": "assistant", "content": blocks or [{"type": "text", "text": ""}]})
         elif isinstance(msg, ToolResultMessage):
-            block = {"type": "tool_result", "tool_use_id": msg.tool_call_id,
-                     "content": msg.content, "is_error": msg.is_error}
-            if out and out[-1]["role"] == "user" and all(
-                b.get("type") == "tool_result" for b in out[-1]["content"]
-            ):
+            block = {
+                "type": "tool_result",
+                "tool_use_id": msg.tool_call_id,
+                "content": msg.content,
+                "is_error": msg.is_error,
+            }
+            if out and out[-1]["role"] == "user" and all(b.get("type") == "tool_result" for b in out[-1]["content"]):
                 out[-1]["content"].append(block)
             else:
                 out.append({"role": "user", "content": [block]})
@@ -98,10 +99,7 @@ def _replay_blocks(blocks: list[dict[str, Any]], msg: AssistantMessage) -> list[
 
 
 def to_anthropic_tools(req: LLMRequest) -> list[dict[str, Any]]:
-    return [
-        {"name": t.name, "description": t.description[:1024], "input_schema": t.input_schema}
-        for t in req.tools
-    ]
+    return [{"name": t.name, "description": t.description[:1024], "input_schema": t.input_schema} for t in req.tools]
 
 
 def from_anthropic_message(message: Any, latency_ms: int) -> LLMResponse:
@@ -204,8 +202,11 @@ class AnthropicAdapter:
         except anthropic.APIStatusError as exc:
             raise errors.from_http_status(exc.status_code, exc.message, provider="anthropic") from exc
         response = from_anthropic_message(message, int((time.perf_counter() - started) * 1000))
-        if response.stop_reason == StopReason.content_filter and not response.message.tool_calls \
-                and not response.message.content:
+        if (
+            response.stop_reason == StopReason.content_filter
+            and not response.message.tool_calls
+            and not response.message.content
+        ):
             raise errors.ContentFiltered("The model declined this request", details={"provider": "anthropic"})
         return response
 

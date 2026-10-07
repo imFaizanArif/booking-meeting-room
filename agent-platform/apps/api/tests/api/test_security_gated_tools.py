@@ -25,14 +25,26 @@ def _graph() -> dict[str, Any]:
     return {
         "nodes": [
             {"id": "trigger", "type": "trigger", "name": "Start", "config": {}},
-            {"id": "submit", "type": "mcp_tool", "name": "Submit directly", "error_policy": {"mode": "fail"},
-             "config": {"tool": SUBMIT, "arguments": {
-                 "job_id": "job-103", "hourly_rate": 110,
-                 "cover_letter": "Submitted straight from a pipeline step, no agent involved."}}},
+            {
+                "id": "submit",
+                "type": "mcp_tool",
+                "name": "Submit directly",
+                "error_policy": {"mode": "fail"},
+                "config": {
+                    "tool": SUBMIT,
+                    "arguments": {
+                        "job_id": "job-103",
+                        "hourly_rate": 110,
+                        "cover_letter": "Submitted straight from a pipeline step, no agent involved.",
+                    },
+                },
+            },
             {"id": "end", "type": "end", "name": "End", "config": {"output": "=nodes.submit.output"}},
         ],
-        "edges": [{"id": "e1", "source": "trigger", "target": "submit"},
-                  {"id": "e2", "source": "submit", "target": "end"}],
+        "edges": [
+            {"id": "e1", "source": "trigger", "target": "submit"},
+            {"id": "e2", "source": "submit", "target": "end"},
+        ],
     }
 
 
@@ -42,12 +54,16 @@ async def _submit_tool_id(client: Any) -> str:
 
 
 async def test_mcp_tool_node_waits_for_approval(
-    login: Login, operator_ctx: AuthContext, runners: RunnerFactory, fake_queue: FakeQueue,
+    login: Login,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    fake_queue: FakeQueue,
 ) -> None:
     operator = await login("operator@example.com")
     viewer = await login("viewer@example.com")
-    created = await operator.post(f"{V1}/pipelines", json={"name": f"Direct submit {uuid.uuid4().hex[:6]}",
-                                                           "graph": _graph()})
+    created = await operator.post(
+        f"{V1}/pipelines", json={"name": f"Direct submit {uuid.uuid4().hex[:6]}", "graph": _graph()}
+    )
     assert created.status_code == 201, created.text
     pipeline_id = created.json()["id"]
 
@@ -65,13 +81,18 @@ async def test_mcp_tool_node_waits_for_approval(
 
     # Every other lever is refused while the approval is pending.
     for action in ("resume", "retry"):
-        assert_envelope(await operator.post(f"{V1}/executions/{execution_id}/control", json={"action": action}),
-                        409, "ILLEGAL_TRANSITION")
-    assert_envelope(await viewer.post(f"{V1}/approvals/{approval.id}/decision", json={"action": "approve"}),
-                    403, "FORBIDDEN")
+        assert_envelope(
+            await operator.post(f"{V1}/executions/{execution_id}/control", json={"action": action}),
+            409,
+            "ILLEGAL_TRANSITION",
+        )
+    assert_envelope(
+        await viewer.post(f"{V1}/approvals/{approval.id}/decision", json={"action": "approve"}), 403, "FORBIDDEN"
+    )
     tool_id = await _submit_tool_id(operator)
-    assert_envelope(await viewer.patch(f"{V1}/mcp/tools/{tool_id}", json={"requires_approval": False}),
-                    403, "FORBIDDEN")
+    assert_envelope(
+        await viewer.patch(f"{V1}/mcp/tools/{tool_id}", json={"requires_approval": False}), 403, "FORBIDDEN"
+    )
     # Re-running the worker without a decision does not execute anything.
     assert await runners.new().run(execution_id) is None  # not in a runnable state
     assert effects("jobs") == []
@@ -93,15 +114,18 @@ async def test_mcp_tool_node_waits_for_approval(
 
 
 async def test_destructive_tool_stays_gated_when_requires_approval_is_cleared(
-    login: Login, operator_ctx: AuthContext, runners: RunnerFactory,
+    login: Login,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
 ) -> None:
     operator = await login("operator@example.com")
     tool_id = await _submit_tool_id(operator)
     relaxed = await operator.patch(f"{V1}/mcp/tools/{tool_id}", json={"requires_approval": False})
     assert relaxed.status_code == 200 and relaxed.json()["is_destructive"] is True
     try:
-        created = await operator.post(f"{V1}/pipelines", json={"name": f"Relaxed {uuid.uuid4().hex[:6]}",
-                                                               "graph": _graph()})
+        created = await operator.post(
+            f"{V1}/pipelines", json={"name": f"Relaxed {uuid.uuid4().hex[:6]}", "graph": _graph()}
+        )
         started = await operator.post(f"{V1}/pipelines/{created.json()['id']}/run", json={"input": {}})
         execution_id = uuid.UUID(started.json()["id"])
         assert await runners.new().run(execution_id) == ExecutionStatus.paused_for_review

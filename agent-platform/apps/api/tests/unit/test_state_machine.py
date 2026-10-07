@@ -17,13 +17,25 @@ from app.orchestration.state_machine import (
 )
 
 LEGAL_EXECUTION = [
-    (E.created, E.queued), (E.queued, E.running), (E.running, E.paused_for_review), (E.running, E.queued),
-    (E.paused_for_review, E.resuming), (E.resuming, E.running), (E.running, E.completed),
-    (E.waiting_for_timer, E.resuming), (E.failed, E.resuming), (E.paused, E.cancelled),
+    (E.created, E.queued),
+    (E.queued, E.running),
+    (E.running, E.paused_for_review),
+    (E.running, E.queued),
+    (E.paused_for_review, E.resuming),
+    (E.resuming, E.running),
+    (E.running, E.completed),
+    (E.waiting_for_timer, E.resuming),
+    (E.failed, E.resuming),
+    (E.paused, E.cancelled),
 ]
 ILLEGAL_EXECUTION = [
-    (E.completed, E.running), (E.cancelled, E.resuming), (E.paused_for_review, E.running),
-    (E.queued, E.completed), (E.created, E.running), (E.failed, E.completed), (E.waiting_for_timer, E.running),
+    (E.completed, E.running),
+    (E.cancelled, E.resuming),
+    (E.paused_for_review, E.running),
+    (E.queued, E.completed),
+    (E.created, E.running),
+    (E.failed, E.completed),
+    (E.waiting_for_timer, E.running),
 ]
 
 
@@ -60,11 +72,17 @@ def test_sources_for_cas_updates() -> None:
 @pytest.mark.parametrize(
     ("current", "new", "legal"),
     [
-        (T.pending, T.awaiting_approval, True), (T.awaiting_approval, T.approved, True),
-        (T.approved, T.executing, True), (T.executing, T.outcome_unknown, True),
-        (T.outcome_unknown, T.completed, True), (T.outcome_unknown, T.executing, True),
-        (T.awaiting_approval, T.executing, False), (T.pending, T.completed, False),
-        (T.completed, T.executing, False), (T.rejected, T.approved, False), (T.cancelled, T.pending, False),
+        (T.pending, T.awaiting_approval, True),
+        (T.awaiting_approval, T.approved, True),
+        (T.approved, T.executing, True),
+        (T.executing, T.outcome_unknown, True),
+        (T.outcome_unknown, T.completed, True),
+        (T.outcome_unknown, T.executing, True),
+        (T.awaiting_approval, T.executing, False),
+        (T.pending, T.completed, False),
+        (T.completed, T.executing, False),
+        (T.rejected, T.approved, False),
+        (T.cancelled, T.pending, False),
     ],
 )
 def test_tool_call_transitions(current: T, new: T, legal: bool) -> None:

@@ -51,8 +51,11 @@ class RuntimeContext:
             "input": state.get("input") or {},
             "nodes": nodes,
             "vars": dict(self.snapshot.variables),
-            "execution": {"id": str(self.execution_id), "pipeline": self.snapshot.pipeline_name,
-                          "version": self.snapshot.pipeline_version},
+            "execution": {
+                "id": str(self.execution_id),
+                "pipeline": self.snapshot.pipeline_name,
+                "version": self.snapshot.pipeline_version,
+            },
         }
         if extra:
             names.update(extra)
@@ -83,21 +86,45 @@ class RuntimeContext:
         return used is not None
 
     # ---- read model ---------------------------------------------------------------------------
-    async def node_started(self, node_id: str, node_type: NodeType, name: str, attempt: int,
-                           input_value: Any = None) -> None:
-        await upsert_node(self.execution_id, node_id, node_type, name, NodeStatus.running, attempts=attempt,
-                          input_summary=summarize(input_value))
+    async def node_started(
+        self, node_id: str, node_type: NodeType, name: str, attempt: int, input_value: Any = None
+    ) -> None:
+        await upsert_node(
+            self.execution_id,
+            node_id,
+            node_type,
+            name,
+            NodeStatus.running,
+            attempts=attempt,
+            input_summary=summarize(input_value),
+        )
         if node_id not in self._started:
             self._started.add(node_id)
-            await node_event(self.workspace_id, self.execution_id, EventType.node_started, node_id,
-                             {"type": node_type.value, "name": name, "attempt": attempt})
+            await node_event(
+                self.workspace_id,
+                self.execution_id,
+                EventType.node_started,
+                node_id,
+                {"type": node_type.value, "name": name, "attempt": attempt},
+            )
 
-    async def node_finished(self, node_id: str, node_type: NodeType, name: str, status: NodeStatus,
-                            output: Any = None, error: dict[str, Any] | None = None) -> None:
-        await upsert_node(self.execution_id, node_id, node_type, name, status,
-                          output_summary=summarize(output), error=error)
-        event = {NodeStatus.completed: EventType.node_completed, NodeStatus.skipped: EventType.node_completed,
-                 NodeStatus.failed: EventType.node_failed}.get(status)
+    async def node_finished(
+        self,
+        node_id: str,
+        node_type: NodeType,
+        name: str,
+        status: NodeStatus,
+        output: Any = None,
+        error: dict[str, Any] | None = None,
+    ) -> None:
+        await upsert_node(
+            self.execution_id, node_id, node_type, name, status, output_summary=summarize(output), error=error
+        )
+        event = {
+            NodeStatus.completed: EventType.node_completed,
+            NodeStatus.skipped: EventType.node_completed,
+            NodeStatus.failed: EventType.node_failed,
+        }.get(status)
         if event is not None:
             payload: dict[str, Any] = {"status": status.value, "type": node_type.value}
             if output is not None:
@@ -107,8 +134,13 @@ class RuntimeContext:
             await node_event(self.workspace_id, self.execution_id, event, node_id, payload)
 
     async def node_retrying(self, node_id: str, attempt: int, error: dict[str, Any], delay_s: float) -> None:
-        await node_event(self.workspace_id, self.execution_id, EventType.node_retrying, node_id,
-                         {"attempt": attempt, "error": error, "delay_s": round(delay_s, 2)})
+        await node_event(
+            self.workspace_id,
+            self.execution_id,
+            EventType.node_retrying,
+            node_id,
+            {"attempt": attempt, "error": error, "delay_s": round(delay_s, 2)},
+        )
 
 
 def runtime_from(config: RunnableConfig) -> RuntimeContext:

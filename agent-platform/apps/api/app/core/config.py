@@ -18,6 +18,11 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://postgres@localhost:5432/agent_platform"
     redis_url: str = "redis://localhost:6379/0"
+    # Hosted Postgres (Supabase, Neon, RDS behind PgBouncer). "auto" detects Supabase from the URL:
+    # port 6543 = transaction pooler (no prepared statements), anything on *.supabase.* needs TLS.
+    database_pooler: Literal["auto", "none", "session", "transaction"] = "auto"
+    database_ssl: Literal["auto", "disable", "require"] = "auto"
+    database_pool_size: int = 10
 
     secrets_master_key: SecretStr = Field(
         default=SecretStr("ZGV2LW9ubHktbWFzdGVyLWtleS1jaGFuZ2UtbWUtMzI="),
@@ -54,7 +59,33 @@ class Settings(BaseSettings):
     @property
     def sync_database_url(self) -> str:
         """psycopg URL used by the LangGraph checkpointer."""
-        return self.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        url = self.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        if self.db_ssl and "sslmode=" not in url:
+            url += ("&" if "?" in url else "?") + "sslmode=require"
+        return url
+
+    @property
+    def _db_host_port(self) -> tuple[str, int]:
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(self.database_url.replace("postgresql+asyncpg://", "postgresql://"))
+        return parts.hostname or "", parts.port or 5432
+
+    @property
+    def db_pooler(self) -> str:
+        if self.database_pooler != "auto":
+            return self.database_pooler
+        host, port = self._db_host_port
+        if port == 6543:
+            return "transaction"
+        return "session" if "pooler.supabase" in host else "none"
+
+    @property
+    def db_ssl(self) -> bool:
+        if self.database_ssl != "auto":
+            return self.database_ssl == "require"
+        host, _ = self._db_host_port
+        return "supabase.co" in host or "supabase.com" in host
 
 
 @lru_cache

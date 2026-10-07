@@ -55,8 +55,16 @@ def unwrap(value: Any) -> Any:
     return value
 
 
-_OPS = {"==": operator.eq, "!=": operator.ne, ">": operator.gt, ">=": operator.ge, "<": operator.lt,
-        "<=": operator.le, "in": lambda a, b: a in b, "contains": lambda a, b: b in (a or [])}
+_OPS = {
+    "==": operator.eq,
+    "!=": operator.ne,
+    ">": operator.gt,
+    ">=": operator.ge,
+    "<": operator.lt,
+    "<=": operator.le,
+    "in": lambda a, b: a in b,
+    "contains": lambda a, b: b in (a or []),
+}
 
 
 def _filter_by(items: list[Any], field: str, op: str, value: Any) -> list[Any]:
@@ -79,9 +87,20 @@ def _get(obj: Any, path: str, default: Any = None) -> Any:
 
 
 FUNCTIONS: dict[str, Any] = {
-    "len": len, "int": int, "float": float, "str": str, "bool": bool, "min": min, "max": max,
-    "sum": sum, "round": round, "abs": abs, "sorted": sorted, "list": list,
-    "lower": lambda s: str(s).lower(), "upper": lambda s: str(s).upper(),
+    "len": len,
+    "int": int,
+    "float": float,
+    "str": str,
+    "bool": bool,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "round": round,
+    "abs": abs,
+    "sorted": sorted,
+    "list": list,
+    "lower": lambda s: str(s).lower(),
+    "upper": lambda s: str(s).upper(),
     "contains": lambda container, item: item in (container or []),
     "keys": lambda d: list((d or {}).keys()),
     "get": _get,
@@ -109,10 +128,19 @@ def evaluate(expression: str, names: dict[str, Any]) -> Any:
     evaluator = EvalWithCompoundTypes(names={k: wrap(v) for k, v in names.items()}, functions=FUNCTIONS)
     try:
         return unwrap(evaluator.eval(expr))
-    except (InvalidExpression, AttributeError, KeyError, IndexError, TypeError, ValueError,
-            ZeroDivisionError, SyntaxError) as exc:
-        raise ExpressionError(f"Cannot evaluate {expr!r}: {exc.__class__.__name__}: {exc}",
-                              details={"expression": expr}) from exc
+    except (
+        InvalidExpression,
+        AttributeError,
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+        ZeroDivisionError,
+        SyntaxError,
+    ) as exc:
+        raise ExpressionError(
+            f"Cannot evaluate {expr!r}: {exc.__class__.__name__}: {exc}", details={"expression": expr}
+        ) from exc
 
 
 def resolve(value: Any, names: dict[str, Any]) -> Any:

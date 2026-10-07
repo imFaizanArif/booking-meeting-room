@@ -20,9 +20,22 @@ _SENSITIVE_KEY = re.compile(
 )
 # keys that look sensitive but are safe identifiers
 _SAFE_KEYS = frozenset(
-    {"secret_ref", "api_key_secret_ref", "token_count", "input_tokens", "output_tokens",
-     "total_tokens", "max_tokens", "is_set", "max_tool_calls", "token_budget", "tokens",
-     "session_id_hint", "csrf_token_hint", "idempotency_key"}
+    {
+        "secret_ref",
+        "api_key_secret_ref",
+        "token_count",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "max_tokens",
+        "is_set",
+        "max_tool_calls",
+        "token_budget",
+        "tokens",
+        "session_id_hint",
+        "csrf_token_hint",
+        "idempotency_key",
+    }
 )
 _MIN_SECRET_LEN = 6
 
@@ -39,9 +52,7 @@ class Redactor:
         with self._lock:
             if value not in self._values:
                 self._values.add(value)
-                self._pattern = re.compile(
-                    "|".join(re.escape(v) for v in sorted(self._values, key=len, reverse=True))
-                )
+                self._pattern = re.compile("|".join(re.escape(v) for v in sorted(self._values, key=len, reverse=True)))
 
     def redact_text(self, text: str) -> str:
         pattern = self._pattern

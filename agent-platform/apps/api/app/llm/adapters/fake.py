@@ -60,8 +60,11 @@ def default_for_schema(schema: dict[str, Any]) -> Any:
     if "enum" in schema:
         return schema["enum"][0]
     if kind == "object":
-        return {k: default_for_schema(v) for k, v in (schema.get("properties") or {}).items()
-                if k in set(schema.get("required") or schema.get("properties") or [])}
+        return {
+            k: default_for_schema(v)
+            for k, v in (schema.get("properties") or {}).items()
+            if k in set(schema.get("required") or schema.get("properties") or [])
+        }
     if kind == "array":
         return []
     if kind in ("integer", "number"):
@@ -105,8 +108,9 @@ class FakeLLMProvider:
                 rendered = render(source, context)
                 parsed = json.loads(rendered)
             except (TemplateError, json.JSONDecodeError) as exc:
-                raise errors.InvalidRequest(f"Fake script step {iteration} is invalid: {exc}",
-                                            details={"provider": "fake"}) from exc
+                raise errors.InvalidRequest(
+                    f"Fake script step {iteration} is invalid: {exc}", details={"provider": "fake"}
+                ) from exc
             message = self._message_from_step(parsed, iteration)
         elif req.response_format is not None:
             message = AssistantMessage(content=json.dumps(default_for_schema(req.response_format.json_schema)))

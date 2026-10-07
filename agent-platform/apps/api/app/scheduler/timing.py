@@ -15,31 +15,47 @@ def zone(name: str) -> ZoneInfo:
     try:
         return ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError) as exc:
-        raise ValidationFailed(f"Unknown timezone {name!r}", details={"fields": [
-            {"field": "timezone", "message": "Use an IANA name such as Europe/Berlin"}]}) from exc
+        raise ValidationFailed(
+            f"Unknown timezone {name!r}",
+            details={"fields": [{"field": "timezone", "message": "Use an IANA name such as Europe/Berlin"}]},
+        ) from exc
 
 
-def validate_schedule(kind: ScheduleKind, *, cron: str | None, interval_seconds: int | None,
-                      daily_time: str | None, timezone: str) -> None:
+def validate_schedule(
+    kind: ScheduleKind, *, cron: str | None, interval_seconds: int | None, daily_time: str | None, timezone: str
+) -> None:
     zone(timezone)
     if kind == ScheduleKind.cron:
         if not cron or not croniter.is_valid(cron):
-            raise ValidationFailed("Invalid cron expression", details={"fields": [
-                {"field": "cron", "message": "Five fields: minute hour day month weekday"}]})
+            raise ValidationFailed(
+                "Invalid cron expression",
+                details={"fields": [{"field": "cron", "message": "Five fields: minute hour day month weekday"}]},
+            )
     elif kind == ScheduleKind.interval:
         if not interval_seconds or interval_seconds < 60:
-            raise ValidationFailed("Interval must be at least 60 seconds", details={"fields": [
-                {"field": "interval_seconds", "message": "Minimum 60"}]})
+            raise ValidationFailed(
+                "Interval must be at least 60 seconds",
+                details={"fields": [{"field": "interval_seconds", "message": "Minimum 60"}]},
+            )
     elif kind == ScheduleKind.daily:
         try:
             time.fromisoformat(daily_time or "")
         except ValueError as exc:
-            raise ValidationFailed("Daily time must be HH:MM", details={"fields": [
-                {"field": "daily_time", "message": "Use 24h HH:MM"}]}) from exc
+            raise ValidationFailed(
+                "Daily time must be HH:MM", details={"fields": [{"field": "daily_time", "message": "Use 24h HH:MM"}]}
+            ) from exc
 
 
-def next_fire(kind: ScheduleKind, *, after: datetime, cron: str | None, interval_seconds: int | None,
-              daily_time: str | None, timezone: str, anchor: datetime | None = None) -> datetime:
+def next_fire(
+    kind: ScheduleKind,
+    *,
+    after: datetime,
+    cron: str | None,
+    interval_seconds: int | None,
+    daily_time: str | None,
+    timezone: str,
+    anchor: datetime | None = None,
+) -> datetime:
     """Next occurrence strictly after `after` (UTC-aware in, UTC-aware out)."""
     tz = zone(timezone)
     local_after = after.astimezone(tz)

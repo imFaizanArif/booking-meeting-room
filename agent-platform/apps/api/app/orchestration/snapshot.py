@@ -76,6 +76,11 @@ class SnapshotTool(BaseModel):
     requires_approval: bool
     risk_level: RiskLevel
 
+    @property
+    def safe_to_rerun(self) -> bool:
+        """Only a read-only tool nobody has marked destructive may run again without a human."""
+        return self.is_read_only and not self.is_destructive
+
 
 class SnapshotServer(BaseModel):
     server_id: uuid.UUID
@@ -105,9 +110,7 @@ class ConfigSnapshot(BaseModel):
     created_at: datetime
 
 
-async def _resolve_model(
-    session: AsyncSession, workspace_id: uuid.UUID, node: LLMNode | AgentNode
-) -> SnapshotLLM:
+async def _resolve_model(session: AsyncSession, workspace_id: uuid.UUID, node: LLMNode | AgentNode) -> SnapshotLLM:
     cfg = node.config
     if cfg.model_id is not None:
         model = await session.scalar(
@@ -118,8 +121,9 @@ async def _resolve_model(
             select(LLMModel).where(LLMModel.workspace_id == workspace_id, LLMModel.is_default.is_(True))
         )
     if model is None:
-        raise ValidationFailed(f"Node {node.id}: no model selected and no workspace default model",
-                               details={"node_id": node.id})
+        raise ValidationFailed(
+            f"Node {node.id}: no model selected and no workspace default model", details={"node_id": node.id}
+        )
     provider = await session.get(LLMProvider, model.provider_id)
     if provider is None or not provider.is_active or not model.is_active:
         raise ValidationFailed(
@@ -131,13 +135,21 @@ async def _resolve_model(
     for key, value in (cfg.provider_extras or {}).items():
         extras[key] = {**(extras.get(key) or {}), **value} if isinstance(value, dict) else value
     return SnapshotLLM(
-        provider_id=provider.id, provider_type=provider.provider_type, provider_name=provider.name,
-        base_url=provider.base_url, api_key_secret_ref=provider.api_key_secret_ref,
-        provider_metadata=provider.metadata_ or {}, requests_per_minute=provider.requests_per_minute,
-        max_concurrency=provider.max_concurrency, model_id=model.id, model_name=model.model_name,
-        context_window=model.context_window, supports_tools=model.supports_tools,
+        provider_id=provider.id,
+        provider_type=provider.provider_type,
+        provider_name=provider.name,
+        base_url=provider.base_url,
+        api_key_secret_ref=provider.api_key_secret_ref,
+        provider_metadata=provider.metadata_ or {},
+        requests_per_minute=provider.requests_per_minute,
+        max_concurrency=provider.max_concurrency,
+        model_id=model.id,
+        model_name=model.model_name,
+        context_window=model.context_window,
+        supports_tools=model.supports_tools,
         supports_json_schema=model.supports_json_schema,
-        input_price_per_mtok=model.input_price_per_mtok, output_price_per_mtok=model.output_price_per_mtok,
+        input_price_per_mtok=model.input_price_per_mtok,
+        output_price_per_mtok=model.output_price_per_mtok,
         temperature=cfg.temperature if cfg.temperature is not None else defaults.get("temperature"),
         max_tokens=cfg.max_tokens if cfg.max_tokens is not None else defaults.get("max_tokens"),
         extras=extras,
@@ -187,33 +199,55 @@ async def build_snapshot(
                 prompts[node.id] = prompt
 
     servers = {
-        s.id: s for s in (await session.scalars(
-            select(MCPServer).where(MCPServer.workspace_id == workspace_id, MCPServer.is_active.is_(True))
-        )).all()
+        s.id: s
+        for s in (
+            await session.scalars(
+                select(MCPServer).where(MCPServer.workspace_id == workspace_id, MCPServer.is_active.is_(True))
+            )
+        ).all()
     }
     tools: dict[str, SnapshotTool] = {}
     if servers:
-        rows = (await session.scalars(
-            select(MCPTool).where(MCPTool.server_id.in_(servers.keys()), MCPTool.is_stale.is_(False))
-        )).all()
+        rows = (
+            await session.scalars(
+                select(MCPTool).where(MCPTool.server_id.in_(servers.keys()), MCPTool.is_stale.is_(False))
+            )
+        ).all()
         for t in rows:
             server = servers[t.server_id]
             name = namespaced(server.slug, t.name)
             tools[name] = SnapshotTool(
-                tool_id=t.id, server_id=server.id, server_slug=server.slug, name=t.name, namespaced_name=name,
-                description=t.description or "", input_schema=t.input_schema, schema_hash=t.schema_hash,
-                is_enabled=t.is_enabled, is_read_only=t.is_read_only, is_destructive=t.is_destructive,
-                requires_approval=t.requires_approval, risk_level=t.risk_level,
+                tool_id=t.id,
+                server_id=server.id,
+                server_slug=server.slug,
+                name=t.name,
+                namespaced_name=name,
+                description=t.description or "",
+                input_schema=t.input_schema,
+                schema_hash=t.schema_hash,
+                is_enabled=t.is_enabled,
+                is_read_only=t.is_read_only,
+                is_destructive=t.is_destructive,
+                requires_approval=t.requires_approval,
+                risk_level=t.risk_level,
             )
     variables = {
-        v.key: v.value for v in (await session.scalars(
-            select(PromptVariable).where(PromptVariable.workspace_id == workspace_id)
-        )).all()
+        v.key: v.value
+        for v in (
+            await session.scalars(select(PromptVariable).where(PromptVariable.workspace_id == workspace_id))
+        ).all()
     }
     return ConfigSnapshot(
-        pipeline_id=pipeline.id, pipeline_name=pipeline.name, pipeline_version_id=version.id,
-        pipeline_version=version.version, graph_hash=version.graph_hash, graph=graph, llm=llm,
-        prompts=prompts, variables=variables, tools=tools,
+        pipeline_id=pipeline.id,
+        pipeline_name=pipeline.name,
+        pipeline_version_id=version.id,
+        pipeline_version=version.version,
+        graph_hash=version.graph_hash,
+        graph=graph,
+        llm=llm,
+        prompts=prompts,
+        variables=variables,
+        tools=tools,
         servers={str(s.id): SnapshotServer(server_id=s.id, slug=s.slug, name=s.name) for s in servers.values()},
         policy=SnapshotPolicy(started_by_role=started_by_role),
         created_at=utcnow(),

@@ -46,7 +46,7 @@ def main() -> None:
     upgrade()
     asyncio.run(setup_checkpointer())
     if args.seed or settings.seed_demo:
-        print(json.dumps(asyncio.run(seed(not args.no_discover)), indent=2))  # noqa: T201
+        print(json.dumps(asyncio.run(seed(not args.no_discover)), indent=2))
 
 
 if __name__ == "__main__":

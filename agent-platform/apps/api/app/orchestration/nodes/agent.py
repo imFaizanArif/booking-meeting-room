@@ -50,8 +50,19 @@ _AGENT_RULES = (
 
 
 def _initial_state() -> dict[str, Any]:
-    return {"messages": [], "iterations": 0, "tool_calls": 0, "tokens": 0, "call_seq": 0, "done": False,
-            "final": None, "stop": None, "pending_regenerate": None, "started": False, "actions": []}
+    return {
+        "messages": [],
+        "iterations": 0,
+        "tool_calls": 0,
+        "tokens": 0,
+        "call_seq": 0,
+        "done": False,
+        "final": None,
+        "stop": None,
+        "pending_regenerate": None,
+        "started": False,
+        "actions": [],
+    }
 
 
 def _agent(state: GraphState, node_id: str) -> dict[str, Any]:
@@ -60,8 +71,13 @@ def _agent(state: GraphState, node_id: str) -> dict[str, Any]:
 
 def _finish_output(node: AgentNode, agent: dict[str, Any]) -> Any:
     final = agent.get("final") or ""
-    output: dict[str, Any] = {"text": final, "stop": agent.get("stop"), "iterations": agent["iterations"],
-                              "tool_calls": agent["tool_calls"], "actions": agent.get("actions", [])}
+    output: dict[str, Any] = {
+        "text": final,
+        "stop": agent.get("stop"),
+        "iterations": agent["iterations"],
+        "tool_calls": agent["tool_calls"],
+        "actions": agent.get("actions", []),
+    }
     if node.config.output_schema and final:
         output["parsed"] = parse_structured(final, node.config.output_schema)
     return output
@@ -95,9 +111,13 @@ def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledState
         messages = load_messages(agent["messages"])
         budget = ContextBudget(max_input_tokens=max(2000, snap.context_window - (snap.max_tokens or 4096)))
         request = LLMRequest(
-            model=snap.model_name, messages=fit_messages(messages, tools, budget), tools=tools,
+            model=snap.model_name,
+            messages=fit_messages(messages, tools, budget),
+            tools=tools,
             tool_choice=ToolCallChoice(cfg.tool_choice) if tools else ToolCallChoice.none,
-            temperature=snap.temperature, max_tokens=snap.max_tokens, extras=snap.extras,
+            temperature=snap.temperature,
+            max_tokens=snap.max_tokens,
+            extras=snap.extras,
         )
 
         async def attempt(_: int) -> Any:
@@ -106,8 +126,11 @@ def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledState
         status, response, err = await run_with_policy(node, rt, attempt)
         if status == FAILED_HANDLED:
             await rt.node_finished(node_id, node.type, node.name, NodeStatus.failed, error=err)
-            return {"node_status": {node_id: FAILED_HANDLED}, "outputs": {node_id: response},
-                    "agents": {node_id: {**agent, "done": True, "stop": "error"}}}
+            return {
+                "node_status": {node_id: FAILED_HANDLED},
+                "outputs": {node_id: response},
+                "agents": {node_id: {**agent, "done": True, "stop": "error"}},
+            }
         messages.append(response.message)
         agent["messages"] = dump_messages(messages)
         agent["iterations"] += 1
@@ -120,16 +143,20 @@ def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledState
     async def _complete(rt: RuntimeContext, agent: dict[str, Any], *, stop: str) -> dict[str, Any]:
         agent.update(done=True, stop=stop)
         if agent.get("final") is None:
-            last = next((m for m in reversed(load_messages(agent["messages"])) if isinstance(m, AssistantMessage)),
-                        None)
+            last = next(
+                (m for m in reversed(load_messages(agent["messages"])) if isinstance(m, AssistantMessage)), None
+            )
             agent["final"] = (last.content if last else "") or ""
         try:
             output = _finish_output(node, agent)
         except AppError as exc:
             output = {"text": agent["final"], "stop": stop, "parse_error": exc.message}
         await rt.node_finished(node_id, node.type, node.name, NodeStatus.completed, output=output)
-        return {"agents": {node_id: agent}, "outputs": {node_id: output},
-                "node_status": {node_id: NodeStatus.completed.value}}
+        return {
+            "agents": {node_id: agent},
+            "outputs": {node_id: output},
+            "node_status": {node_id: NodeStatus.completed.value},
+        }
 
     async def tools_step(state: GraphState, config: RunnableConfig) -> dict[str, Any]:
         rt = runtime_from(config)
@@ -144,17 +171,32 @@ def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledState
         calls = list(assistant.tool_calls)
         for offset, call in enumerate(calls):
             if agent["tool_calls"] + offset >= cfg.max_tool_calls:
-                results.append(ToolResultMessage(
-                    tool_call_id=call.id, name=call.name, is_error=True,
-                    content=json.dumps({"error": ErrorCode.limit_exceeded.value,
-                                        "message": "Tool call limit for this step was reached"})))
+                results.append(
+                    ToolResultMessage(
+                        tool_call_id=call.id,
+                        name=call.name,
+                        is_error=True,
+                        content=json.dumps(
+                            {
+                                "error": ErrorCode.limit_exceeded.value,
+                                "message": "Tool call limit for this step was reached",
+                            }
+                        ),
+                    )
+                )
                 agent["stop"] = "max_tool_calls"
                 continue
             await rt.check_cancel()
             outcome = await rt.tools.route(
-                node_id=node_id, call_seq=agent["call_seq"] + offset, name=call.name, arguments=call.arguments,
-                llm_tool_call_id=call.id, allowlist=cfg.tool_allowlist, supersedes=supersedes,
-                can_regenerate=True, context_summary=_summary_for(assistant, call.name),
+                node_id=node_id,
+                call_seq=agent["call_seq"] + offset,
+                name=call.name,
+                arguments=call.arguments,
+                llm_tool_call_id=call.id,
+                allowlist=cfg.tool_allowlist,
+                supersedes=supersedes,
+                can_regenerate=True,
+                context_summary=_summary_for(assistant, call.name),
             )
             if outcome.edited_arguments is not None:
                 # Rewrite history so the model reasons about what actually ran.
@@ -165,11 +207,18 @@ def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledState
             if outcome.status == RouteStatus.regenerate and outcome.approval_id:
                 regenerate_from = outcome.approval_id
             agent.setdefault("actions", []).append(
-                {"tool": call.name, "status": outcome.status.value,
-                 "tool_call_id": str(outcome.tool_call_id) if outcome.tool_call_id else None,
-                 "edited": outcome.edited_arguments is not None})
-            results.append(ToolResultMessage(tool_call_id=call.id, name=call.name, content=outcome.content,
-                                             is_error=outcome.is_error))
+                {
+                    "tool": call.name,
+                    "status": outcome.status.value,
+                    "tool_call_id": str(outcome.tool_call_id) if outcome.tool_call_id else None,
+                    "edited": outcome.edited_arguments is not None,
+                }
+            )
+            results.append(
+                ToolResultMessage(
+                    tool_call_id=call.id, name=call.name, content=outcome.content, is_error=outcome.is_error
+                )
+            )
         messages[assistant_index] = assistant
         messages.extend(results)
         agent["messages"] = dump_messages(messages)

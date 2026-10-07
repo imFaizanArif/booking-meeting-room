@@ -45,22 +45,30 @@ def default_flags(tool: DiscoveredTool) -> dict[str, object]:
 async def upsert_tools(session: AsyncSession, server: MCPServer, tools: list[DiscoveredTool]) -> DiscoveryReport:
     now = utcnow()
     report = DiscoveryReport()
-    existing = {
-        t.name: t
-        for t in (await session.scalars(select(MCPTool).where(MCPTool.server_id == server.id))).all()
-    }
+    existing = {t.name: t for t in (await session.scalars(select(MCPTool).where(MCPTool.server_id == server.id))).all()}
     seen: set[str] = set()
     for tool in tools:
         seen.add(tool.name)
         row = existing.get(tool.name)
         digest = tool.schema_hash
         if row is None:
-            session.add(MCPTool(
-                workspace_id=server.workspace_id, server_id=server.id, name=tool.name, title=tool.title,
-                description=tool.description, input_schema=tool.input_schema, output_schema=tool.output_schema,
-                annotations=tool.annotations, schema_hash=digest, is_enabled=False, is_stale=False,
-                last_discovered_at=now, **default_flags(tool),
-            ))
+            session.add(
+                MCPTool(
+                    workspace_id=server.workspace_id,
+                    server_id=server.id,
+                    name=tool.name,
+                    title=tool.title,
+                    description=tool.description,
+                    input_schema=tool.input_schema,
+                    output_schema=tool.output_schema,
+                    annotations=tool.annotations,
+                    schema_hash=digest,
+                    is_enabled=False,
+                    is_stale=False,
+                    last_discovered_at=now,
+                    **default_flags(tool),
+                )
+            )
             report.added.append(tool.name)
             continue
         changed = row.schema_hash != digest

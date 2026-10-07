@@ -25,8 +25,9 @@ class Job(StrEnum):
 
 
 class JobQueue(Protocol):
-    async def enqueue(self, job: Job, *args: Any, job_id: str | None = None,
-                      defer_until: datetime | None = None) -> str | None: ...
+    async def enqueue(
+        self, job: Job, *args: Any, job_id: str | None = None, defer_until: datetime | None = None
+    ) -> str | None: ...
 
     async def call(self, job: Job, *args: Any, timeout_s: float = 30.0) -> Any: ...
 
@@ -44,18 +45,19 @@ class ArqQueue:
             self._pool = await create_pool(redis_settings(), default_queue_name=QUEUE_NAME)
         return self._pool
 
-    async def enqueue(self, job: Job, *args: Any, job_id: str | None = None,
-                      defer_until: datetime | None = None) -> str | None:
+    async def enqueue(
+        self, job: Job, *args: Any, job_id: str | None = None, defer_until: datetime | None = None
+    ) -> str | None:
         pool = await self.pool()
-        handle = await pool.enqueue_job(job.value, *args, _job_id=job_id, _defer_until=defer_until,
-                                        _queue_name=QUEUE_NAME)
+        handle = await pool.enqueue_job(
+            job.value, *args, _job_id=job_id, _defer_until=defer_until, _queue_name=QUEUE_NAME
+        )
         return handle.job_id if handle is not None else None
 
     async def call(self, job: Job, *args: Any, timeout_s: float = 30.0) -> Any:
         """Enqueue and wait for the result (used for interactive actions such as discovery)."""
         pool = await self.pool()
-        handle = await pool.enqueue_job(job.value, *args, _job_id=f"{job.value}:{uuid.uuid4()}",
-                                        _queue_name=QUEUE_NAME)
+        handle = await pool.enqueue_job(job.value, *args, _job_id=f"{job.value}:{uuid.uuid4()}", _queue_name=QUEUE_NAME)
         if handle is None:
             raise RuntimeError("job was not enqueued")
         return await handle.result(timeout=timeout_s, poll_delay=0.2)

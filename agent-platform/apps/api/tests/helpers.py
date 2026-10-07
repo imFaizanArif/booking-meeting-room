@@ -43,14 +43,24 @@ async def db_execution(execution_id: uuid.UUID) -> Execution:
 
 async def tool_calls(execution_id: uuid.UUID) -> list[ToolCall]:
     async with session_scope() as session:
-        return list((await session.scalars(select(ToolCall).where(ToolCall.execution_id == execution_id)
-                                           .order_by(ToolCall.created_at))).all())
+        return list(
+            (
+                await session.scalars(
+                    select(ToolCall).where(ToolCall.execution_id == execution_id).order_by(ToolCall.created_at)
+                )
+            ).all()
+        )
 
 
 async def approvals(execution_id: uuid.UUID) -> list[Approval]:
     async with session_scope() as session:
-        return list((await session.scalars(select(Approval).where(Approval.execution_id == execution_id)
-                                           .order_by(Approval.created_at))).all())
+        return list(
+            (
+                await session.scalars(
+                    select(Approval).where(Approval.execution_id == execution_id).order_by(Approval.created_at)
+                )
+            ).all()
+        )
 
 
 async def pending_approval(execution_id: uuid.UUID, kind: ApprovalKind = ApprovalKind.tool_call) -> Approval:
@@ -65,8 +75,15 @@ async def submit_calls(execution_id: uuid.UUID) -> list[ToolCall]:
 
 async def event_seqs(execution_id: uuid.UUID) -> list[int]:
     async with session_scope() as session:
-        return list((await session.scalars(select(ExecutionEvent.seq).where(
-            ExecutionEvent.execution_id == execution_id).order_by(ExecutionEvent.seq))).all())
+        return list(
+            (
+                await session.scalars(
+                    select(ExecutionEvent.seq)
+                    .where(ExecutionEvent.execution_id == execution_id)
+                    .order_by(ExecutionEvent.seq)
+                )
+            ).all()
+        )
 
 
 async def graph_values(checkpointer: Any, execution_id: uuid.UUID) -> dict[str, Any]:
@@ -85,8 +102,7 @@ async def patch_snapshot_tool(execution_id: uuid.UUID, tool: str, **values: Any)
         tools = dict(snapshot["tools"])
         tools[tool] = {**tools[tool], **values}
         snapshot["tools"] = tools
-        await session.execute(sa.update(Execution).where(Execution.id == execution_id)
-                              .values(config_snapshot=snapshot))
+        await session.execute(sa.update(Execution).where(Execution.id == execution_id).values(config_snapshot=snapshot))
 
 
 def statuses(calls: list[ToolCall]) -> dict[str, list[ToolCallStatus]]:

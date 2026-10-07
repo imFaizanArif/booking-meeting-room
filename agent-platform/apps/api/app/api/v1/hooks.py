@@ -35,19 +35,20 @@ class WebhookSecretOut(Schema):
 async def rotate_webhook_secret(pipeline_id: uuid.UUID, ctx: Auth, session: DB) -> WebhookSecretOut:
     """Generate a new signing secret. It is shown once."""
     ctx.require(Role.owner)
-    pipeline = await session.scalar(select(Pipeline).where(Pipeline.id == pipeline_id,
-                                                           Pipeline.workspace_id == ctx.workspace_id))
+    pipeline = await session.scalar(
+        select(Pipeline).where(Pipeline.id == pipeline_id, Pipeline.workspace_id == ctx.workspace_id)
+    )
     if pipeline is None:
         raise NotFound("Pipeline not found")
     secret = new_token()
-    pipeline.webhook_secret_ref = await secret_fields.put_field(session, ctx, f"pipeline:{pipeline.id}:webhook",
-                                                                secret)
+    pipeline.webhook_secret_ref = await secret_fields.put_field(session, ctx, f"pipeline:{pipeline.id}:webhook", secret)
     return WebhookSecretOut(secret=secret)
 
 
 @router.post("/hooks/pipelines/{pipeline_id}", response_model=ExecutionOut, status_code=202)
-async def webhook_trigger(pipeline_id: uuid.UUID, request: Request, session: DB,
-                          x_agent_platform_signature: str = Header(default="")) -> ExecutionOut:
+async def webhook_trigger(
+    pipeline_id: uuid.UUID, request: Request, session: DB, x_agent_platform_signature: str = Header(default="")
+) -> ExecutionOut:
     await rate_limit(f"hook:{client_ip(request)}", Limit(60, 60))
     pipeline = await session.get(Pipeline, pipeline_id)
     if pipeline is None or pipeline.is_archived or not pipeline.webhook_secret_ref or not pipeline.latest_version_id:
@@ -65,6 +66,13 @@ async def webhook_trigger(pipeline_id: uuid.UUID, request: Request, session: DB,
     version = await session.get(PipelineVersion, pipeline.latest_version_id)
     assert version is not None
     execution = await create_execution(
-        session, workspace_id=pipeline.workspace_id, pipeline=pipeline, version=version, input=payload,
-        trigger=TriggerKind.webhook, actor=Actor("webhook", None, client_ip(request)), started_by_role=Role.operator)
+        session,
+        workspace_id=pipeline.workspace_id,
+        pipeline=pipeline,
+        version=version,
+        input=payload,
+        trigger=TriggerKind.webhook,
+        actor=Actor("webhook", None, client_ip(request)),
+        started_by_role=Role.operator,
+    )
     return (await execution_outs(session, [execution]))[0]

@@ -51,9 +51,17 @@ def _client() -> httpx.AsyncClient:
 
 class WebhookNotifier:
     async def send(self, url: str, message: NotificationMessage, signing_secret: str | None) -> None:
-        body = json.dumps({"event": message.event, "title": message.title, "text": message.text,
-                           "fields": message.fields, "url": message.url, "sent_at": utcnow().isoformat()},
-                          default=str).encode()
+        body = json.dumps(
+            {
+                "event": message.event,
+                "title": message.title,
+                "text": message.text,
+                "fields": message.fields,
+                "url": message.url,
+                "sent_at": utcnow().isoformat(),
+            },
+            default=str,
+        ).encode()
         headers = {"content-type": "application/json"}
         if signing_secret:
             headers["x-agent-platform-signature"] = sign_payload(signing_secret, body, int(time.time()))
@@ -92,8 +100,7 @@ NOTIFIERS: dict[NotificationChannelType, Notifier] = {
 
 
 class NotificationDispatcher:
-    def __init__(self, notifiers: dict[NotificationChannelType, Notifier] | None = None,
-                 attempts: int = 4) -> None:
+    def __init__(self, notifiers: dict[NotificationChannelType, Notifier] | None = None, attempts: int = 4) -> None:
         self.notifiers = notifiers or NOTIFIERS
         self.attempts = attempts
 
@@ -101,11 +108,17 @@ class NotificationDispatcher:
         async with session_scope() as session:
             manager = get_secret_manager()
             url = await manager.get(session, channel.workspace_id, channel.url_secret_ref)
-            signing = (await manager.get(session, channel.workspace_id, channel.signing_secret_ref)
-                       if channel.signing_secret_ref else None)
+            signing = (
+                await manager.get(session, channel.workspace_id, channel.signing_secret_ref)
+                if channel.signing_secret_ref
+                else None
+            )
         clean = NotificationMessage(
-            event=message.event, title=redactor.redact_text(message.title), text=redactor.redact_text(message.text),
-            fields=redactor.redact(message.fields), url=message.url,
+            event=message.event,
+            title=redactor.redact_text(message.title),
+            text=redactor.redact_text(message.text),
+            fields=redactor.redact(message.fields),
+            url=message.url,
         )
         notifier = self.notifiers[channel.channel_type]
         ok = False
@@ -116,10 +129,14 @@ class NotificationDispatcher:
                 ok = True
                 break
             except Exception as exc:
-                log.warning("notification_failed", channel=channel.name, attempt=attempt + 1,
-                            error=redactor.redact_text(str(exc))[:300])
+                log.warning(
+                    "notification_failed",
+                    channel=channel.name,
+                    attempt=attempt + 1,
+                    error=redactor.redact_text(str(exc))[:300],
+                )
                 if attempt + 1 < self.attempts:
-                    await asyncio.sleep(min(30.0, 2 ** attempt) + random.uniform(0, 0.5))
+                    await asyncio.sleep(min(30.0, 2**attempt) + random.uniform(0, 0.5))
         async with session_scope() as session:
             row = await session.get(NotificationChannel, channel.id)
             if row is not None:
@@ -127,8 +144,9 @@ class NotificationDispatcher:
                 row.last_delivery_at = utcnow()
         return ok
 
-    async def send(self, workspace_id: uuid.UUID, message: NotificationMessage,
-                   channel_ids: list[uuid.UUID] | None = None) -> dict[str, bool]:
+    async def send(
+        self, workspace_id: uuid.UUID, message: NotificationMessage, channel_ids: list[uuid.UUID] | None = None
+    ) -> dict[str, bool]:
         async with session_scope() as session:
             query = select(NotificationChannel).where(
                 NotificationChannel.workspace_id == workspace_id, NotificationChannel.is_active.is_(True)
@@ -154,8 +172,12 @@ class NotificationDispatcher:
             event="approval.created",
             title=f"Approval needed: {approval.title}",
             text=approval.summary or "An execution is paused and waiting for a decision.",
-            fields={"execution": str(approval.execution_id), "pipeline": pipeline or "-",
-                    "risk": approval.risk_level or "-", **{f"arg.{k}": v for k, v in preview.items()}},
+            fields={
+                "execution": str(approval.execution_id),
+                "pipeline": pipeline or "-",
+                "risk": approval.risk_level or "-",
+                **{f"arg.{k}": v for k, v in preview.items()},
+            },
             url=f"{get_settings().public_web_url.rstrip('/')}/approvals/{approval.id}",
         )
         return await self.send(approval.workspace_id, message)

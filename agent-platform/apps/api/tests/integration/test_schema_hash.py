@@ -34,7 +34,8 @@ async def test_policy_denies_call_when_live_schema_differs(operator_ctx: AuthCon
 
 
 async def test_schema_change_after_approval_blocks_execution(
-    operator_ctx: AuthContext, runners: RunnerFactory,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     assert await runners.new().run(execution_id) == ExecutionStatus.paused_for_review

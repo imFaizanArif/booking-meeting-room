@@ -31,13 +31,32 @@ async def get_dashboard(ctx: Auth, session: DB) -> DashboardOut:
 
 
 @router.get("/audit", response_model=Page[AuditOut])
-async def search_audit(ctx: Auth, session: DB, q: str | None = None, event_type: str | None = None,
-                       entity_type: str | None = None, execution_id: uuid.UUID | None = None,
-                       actor: str | None = None, since: datetime | None = None, until: datetime | None = None,
-                       limit: int = Query(100, le=500), offset: int = 0) -> Page[AuditOut]:
+async def search_audit(
+    ctx: Auth,
+    session: DB,
+    q: str | None = None,
+    event_type: str | None = None,
+    entity_type: str | None = None,
+    execution_id: uuid.UUID | None = None,
+    actor: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    limit: int = Query(100, le=500),
+    offset: int = 0,
+) -> Page[AuditOut]:
     items, total = await dashboard_service.search_audit(
-        session, ctx, q=q, event_type=event_type, entity_type=entity_type, execution_id=execution_id, actor=actor,
-        since=since, until=until, limit=limit, offset=offset)
+        session,
+        ctx,
+        q=q,
+        event_type=event_type,
+        entity_type=entity_type,
+        execution_id=execution_id,
+        actor=actor,
+        since=since,
+        until=until,
+        limit=limit,
+        offset=offset,
+    )
     return Page(items=items, total=total, limit=limit, offset=offset)
 
 

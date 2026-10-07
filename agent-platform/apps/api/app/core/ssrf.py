@@ -33,10 +33,7 @@ def _allowlisted(host: str, ips: list[ipaddress.IPv4Address | ipaddress.IPv6Addr
 
 
 def _is_private(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return (
-        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast
-        or ip.is_reserved or ip.is_unspecified
-    )
+    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified
 
 
 async def guard_url(url: str) -> None:

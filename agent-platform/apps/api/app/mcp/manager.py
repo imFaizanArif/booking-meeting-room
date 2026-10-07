@@ -66,8 +66,9 @@ class MCPConnectionManager:
             try:
                 await asyncio.wait_for(self._stdio.acquire(), timeout=spec.connect_timeout_s)
             except TimeoutError as exc:
-                raise MCPConnectionFailed("Too many MCP stdio processes in this worker",
-                                          details={"server": spec.slug}) from exc
+                raise MCPConnectionFailed(
+                    "Too many MCP stdio processes in this worker", details={"server": spec.slug}
+                ) from exc
             self._stdio_held.add(key)
         conn = MCPConnection(spec, on_status=self._on_status, on_tools_changed=self._on_tools_changed)
         try:

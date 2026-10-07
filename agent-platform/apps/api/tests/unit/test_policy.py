@@ -17,17 +17,31 @@ HASH = "a" * 64
 
 def tool(**overrides: Any) -> SnapshotTool:
     values: dict[str, Any] = {
-        "tool_id": uuid.uuid4(), "server_id": uuid.uuid4(), "server_slug": "demo_jobs", "name": "submit_proposal",
-        "namespaced_name": NAME, "input_schema": {"type": "object"}, "schema_hash": HASH, "is_enabled": True,
-        "is_read_only": False, "is_destructive": False, "requires_approval": False, "risk_level": RiskLevel.medium,
+        "tool_id": uuid.uuid4(),
+        "server_id": uuid.uuid4(),
+        "server_slug": "demo_jobs",
+        "name": "submit_proposal",
+        "namespaced_name": NAME,
+        "input_schema": {"type": "object"},
+        "schema_hash": HASH,
+        "is_enabled": True,
+        "is_read_only": False,
+        "is_destructive": False,
+        "requires_approval": False,
+        "risk_level": RiskLevel.medium,
     }
     return SnapshotTool(**{**values, **overrides})
 
 
 def ctx(**overrides: Any) -> PolicyContext:
-    values: dict[str, Any] = {"execution_id": uuid.uuid4(), "workspace_id": uuid.uuid4(), "node_id": "draft",
-                              "allowlist": frozenset({NAME}), "started_by_role": Role.operator,
-                              "live_schema_hash": HASH}
+    values: dict[str, Any] = {
+        "execution_id": uuid.uuid4(),
+        "workspace_id": uuid.uuid4(),
+        "node_id": "draft",
+        "allowlist": frozenset({NAME}),
+        "started_by_role": Role.operator,
+        "live_schema_hash": HASH,
+    }
     return PolicyContext(**{**values, **overrides})
 
 
@@ -38,8 +52,12 @@ def test_allow_when_everything_passes() -> None:
     decision = ENGINE.evaluate(NAME, tool(), ctx())
     assert decision.decision == PolicyDecision.allow
     assert decision.risk_level == RiskLevel.medium and decision.code is None
-    assert decision.to_dict() == {"decision": "allow", "reasons": ["All policies passed"], "risk_level": "medium",
-                                  "code": None}
+    assert decision.to_dict() == {
+        "decision": "allow",
+        "reasons": ["All policies passed"],
+        "risk_level": "medium",
+        "code": None,
+    }
 
 
 @pytest.mark.parametrize(
@@ -61,15 +79,18 @@ def test_deny_rules(snapshot_tool: SnapshotTool | None, context: PolicyContext, 
 
 def test_deny_order_first_failing_rule_wins() -> None:
     # Disabled AND outside the allow-list AND schema drift: the earliest rule decides.
-    decision = ENGINE.evaluate(NAME, tool(is_enabled=False, requires_approval=True),
-                               ctx(allowlist=frozenset(), live_schema_hash="c" * 64, started_by_role=Role.viewer))
+    decision = ENGINE.evaluate(
+        NAME,
+        tool(is_enabled=False, requires_approval=True),
+        ctx(allowlist=frozenset(), live_schema_hash="c" * 64, started_by_role=Role.viewer),
+    )
     assert decision.code == ErrorCode.tool_not_enabled
-    decision = ENGINE.evaluate(NAME, tool(requires_approval=True),
-                               ctx(allowlist=frozenset(), live_schema_hash="c" * 64))
+    decision = ENGINE.evaluate(
+        NAME, tool(requires_approval=True), ctx(allowlist=frozenset(), live_schema_hash="c" * 64)
+    )
     assert decision.code == ErrorCode.tool_not_allowed
     # A deny beats a pending approval requirement.
-    decision = ENGINE.evaluate(NAME, tool(requires_approval=True, is_destructive=True),
-                               ctx(live_schema_hash="c" * 64))
+    decision = ENGINE.evaluate(NAME, tool(requires_approval=True, is_destructive=True), ctx(live_schema_hash="c" * 64))
     assert decision.decision == PolicyDecision.deny and decision.code == ErrorCode.tool_schema_changed
 
 
@@ -83,8 +104,10 @@ def test_unknown_live_hash_and_no_allowlist_do_not_deny() -> None:
     [
         ({"requires_approval": True}, ["Tool is configured to require approval"]),
         ({"is_destructive": True}, ["Tool is marked destructive"]),
-        ({"requires_approval": True, "is_destructive": True, "risk_level": RiskLevel.high},
-         ["Tool is configured to require approval"]),
+        (
+            {"requires_approval": True, "is_destructive": True, "risk_level": RiskLevel.high},
+            ["Tool is configured to require approval"],
+        ),
     ],
 )
 def test_approval_required(flags: dict[str, Any], reasons: list[str]) -> None:

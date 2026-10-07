@@ -32,9 +32,7 @@ class PipelineVersion(IdMixin, TimestampMixin, Base):
     __tablename__ = "pipeline_versions"
     __table_args__ = (sa.UniqueConstraint("pipeline_id", "version"),)
 
-    pipeline_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("pipelines.id", ondelete="CASCADE"), index=True
-    )
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("pipelines.id", ondelete="CASCADE"), index=True)
     version: Mapped[int]
     graph: Mapped[dict[str, Any]]
     graph_hash: Mapped[str] = mapped_column(sa.String(64))
@@ -45,9 +43,7 @@ class PipelineVersion(IdMixin, TimestampMixin, Base):
 class Schedule(IdMixin, TimestampMixin, WorkspaceScoped, Base):
     __tablename__ = "schedules"
 
-    pipeline_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("pipelines.id", ondelete="CASCADE"), index=True
-    )
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("pipelines.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(sa.String(200))
     kind: Mapped[ScheduleKind] = mapped_column(enum_col(ScheduleKind, name="schedule_kind"))
     cron: Mapped[str | None] = mapped_column(sa.String(120))
@@ -69,12 +65,8 @@ class ScheduleFire(IdMixin, TimestampMixin, Base):
     __tablename__ = "schedule_fires"
     __table_args__ = (sa.UniqueConstraint("schedule_id", "fire_at"),)
 
-    schedule_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("schedules.id", ondelete="CASCADE"), index=True
-    )
+    schedule_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("schedules.id", ondelete="CASCADE"), index=True)
     fire_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
-    execution_id: Mapped[uuid.UUID | None] = mapped_column(
-        sa.ForeignKey("executions.id", ondelete="SET NULL")
-    )
+    execution_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("executions.id", ondelete="SET NULL"))
     outcome: Mapped[str] = mapped_column(sa.String(40), comment="enqueued | skipped_overlap | failed")
     fired_by: Mapped[str] = mapped_column(sa.String(120))

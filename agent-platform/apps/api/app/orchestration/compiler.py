@@ -84,8 +84,10 @@ def make_node_fn(node: PipelineNode, graph: PipelineGraph) -> Any:
 def compile_pipeline(graph: PipelineGraph, checkpointer: BaseCheckpointSaver[Any] | None) -> CompiledStateGraph:
     result = validate_graph(graph)
     if not result.ok:
-        raise ValidationFailed("Pipeline graph is invalid",
-                               details={"issues": [i.__dict__ for i in result.issues if i.severity == "error"]})
+        raise ValidationFailed(
+            "Pipeline graph is invalid",
+            details={"issues": [i.__dict__ for i in result.issues if i.severity == "error"]},
+        )
     builder = StateGraph(GraphState)
     for node in graph.nodes:
         if isinstance(node, AgentNode):

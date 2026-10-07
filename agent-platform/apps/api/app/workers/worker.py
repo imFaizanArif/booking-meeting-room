@@ -42,10 +42,17 @@ async def startup(ctx: dict[str, Any]) -> None:
     queue = ArqQueue()
     redis = get_redis()
     ctx.update(
-        stack=stack, queue=queue, connections=connections,
-        runner=ExecutionRunner(checkpointer=checkpointer, connections=connections, queue=queue,
-                               worker_id=worker_identity(), bucket=TokenBucket(redis),
-                               concurrency=ConcurrencyLimiter(redis)),
+        stack=stack,
+        queue=queue,
+        connections=connections,
+        runner=ExecutionRunner(
+            checkpointer=checkpointer,
+            connections=connections,
+            queue=queue,
+            worker_id=worker_identity(),
+            bucket=TokenBucket(redis),
+            concurrency=ConcurrencyLimiter(redis),
+        ),
         notifications=NotificationDispatcher(),
     )
     log.info("worker_started", worker=ctx["runner"].worker_id)
@@ -64,8 +71,9 @@ async def run_execution(ctx: dict[str, Any], execution_id: str) -> str | None:
 
 
 async def resume_execution(ctx: dict[str, Any], execution_id: str, options: dict[str, Any] | None = None) -> str | None:
-    status = await ctx["runner"].run(uuid.UUID(execution_id),
-                                     operator_resume=bool((options or {}).get("operator_resume")))
+    status = await ctx["runner"].run(
+        uuid.UUID(execution_id), operator_resume=bool((options or {}).get("operator_resume"))
+    )
     return status.value if status else None
 
 
@@ -85,9 +93,15 @@ async def discover_server(ctx: dict[str, Any], server_id: str) -> dict[str, Any]
         server = await session.get(MCPServer, uuid.UUID(server_id))
         assert server is not None
         report = await upsert_tools(session, server, list(conn.tools.values()))
-    return {"ok": True, "message": f"Discovered {len(conn.tools)} tools", "added": report.added,
-            "updated": report.updated, "stale": report.stale, "schema_changed": report.schema_changed,
-            "server_info": conn.server_info}
+    return {
+        "ok": True,
+        "message": f"Discovered {len(conn.tools)} tools",
+        "added": report.added,
+        "updated": report.updated,
+        "stale": report.stale,
+        "schema_changed": report.schema_changed,
+        "server_info": conn.server_info,
+    }
 
 
 async def test_server(ctx: dict[str, Any], server_id: str) -> dict[str, Any]:
@@ -114,8 +128,13 @@ async def test_provider(ctx: dict[str, Any], provider_id: str, model_name: str |
         api_key = None
         if provider.api_key_secret_ref and provider.provider_type not in KEYLESS:
             api_key = await get_secret_manager().get(session, provider.workspace_id, provider.api_key_secret_ref)
-        config = ProviderConfig(provider_type=provider.provider_type.value, base_url=provider.base_url,
-                                api_key=api_key, timeout_s=20.0, metadata=provider.metadata_ or {})
+        config = ProviderConfig(
+            provider_type=provider.provider_type.value,
+            base_url=provider.base_url,
+            api_key=api_key,
+            timeout_s=20.0,
+            metadata=provider.metadata_ or {},
+        )
     try:
         message = await asyncio.wait_for(build_provider(config).health(model_name), timeout=25)
         return {"ok": True, "message": message}

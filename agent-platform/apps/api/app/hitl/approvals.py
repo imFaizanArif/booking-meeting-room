@@ -46,9 +46,13 @@ class ApprovalAlreadyDecided(AppError):
 
 
 async def approvals_for_tool_call(session: AsyncSession, tool_call_id: uuid.UUID) -> list[Approval]:
-    return list((await session.scalars(
-        select(Approval).where(Approval.tool_call_id == tool_call_id).order_by(Approval.created_at, Approval.id)
-    )).all())
+    return list(
+        (
+            await session.scalars(
+                select(Approval).where(Approval.tool_call_id == tool_call_id).order_by(Approval.created_at, Approval.id)
+            )
+        ).all()
+    )
 
 
 async def create_approval(
@@ -69,18 +73,25 @@ async def create_approval(
     supersedes: uuid.UUID | None = None,
 ) -> Approval:
     approval = Approval(
-        id=uuid.uuid4(), workspace_id=workspace_id, execution_id=execution_id, node_id=node_id, kind=kind,
-        tool_call_id=tool_call_id, status=ApprovalStatus.pending, title=title[:300], summary=summary,
-        risk_level=risk_level, reasons=reasons or [], original_arguments=original_arguments,
+        id=uuid.uuid4(),
+        workspace_id=workspace_id,
+        execution_id=execution_id,
+        node_id=node_id,
+        kind=kind,
+        tool_call_id=tool_call_id,
+        status=ApprovalStatus.pending,
+        title=title[:300],
+        summary=summary,
+        risk_level=risk_level,
+        reasons=reasons or [],
+        original_arguments=original_arguments,
         payload=redactor.redact(payload) if payload else None,
         expires_at=utcnow() + timedelta(minutes=expires_in_minutes) if expires_in_minutes else None,
     )
     session.add(approval)
     await session.flush()
     if supersedes is not None:
-        await session.execute(
-            sa.update(Approval).where(Approval.id == supersedes).values(superseded_by=approval.id)
-        )
+        await session.execute(sa.update(Approval).where(Approval.id == supersedes).values(superseded_by=approval.id))
     return approval
 
 
@@ -107,15 +118,17 @@ async def decide(
 ) -> Approval:
     ctx.require(Role.operator)
     approval = await session.scalar(
-        select(Approval).where(Approval.id == approval_id, Approval.workspace_id == ctx.workspace_id)
-        .with_for_update()
+        select(Approval).where(Approval.id == approval_id, Approval.workspace_id == ctx.workspace_id).with_for_update()
     )
     if approval is None:
         raise NotFound("Approval not found")
     if approval.status != ApprovalStatus.pending:
         raise ApprovalAlreadyDecided(
             f"This approval was already {approval.status.value}",
-            details={"status": approval.status.value, "decided_by": str(approval.decided_by) if approval.decided_by else None},
+            details={
+                "status": approval.status.value,
+                "decided_by": str(approval.decided_by) if approval.decided_by else None,
+            },
         )
     if approval.expires_at is not None and approval.expires_at < utcnow():
         raise ApprovalAlreadyDecided("This approval has expired", details={"status": "expired"})
@@ -131,8 +144,10 @@ async def decide(
     if action == DecisionAction.edit:
         if approval.kind == ApprovalKind.tool_call:
             if not isinstance(edited_arguments, dict):
-                raise ValidationFailed("edited_arguments must be a JSON object",
-                                       details={"fields": [{"field": "", "message": "Expected an object"}]})
+                raise ValidationFailed(
+                    "edited_arguments must be a JSON object",
+                    details={"fields": [{"field": "", "message": "Expected an object"}]},
+                )
             snapshot = ConfigSnapshot.model_validate(execution.config_snapshot)
             tool = snapshot.tools.get(tool_call.namespaced_name) if tool_call else None
             if tool is None:
@@ -149,8 +164,10 @@ async def decide(
         approval.status = ApprovalStatus.approved
     elif action == DecisionAction.reject:
         if not (reason or "").strip():
-            raise ValidationFailed("A reason is required to reject", details={"fields": [
-                {"field": "reason", "message": "Explain why so the agent can adapt"}]})
+            raise ValidationFailed(
+                "A reason is required to reject",
+                details={"fields": [{"field": "reason", "message": "Explain why so the agent can adapt"}]},
+            )
         approval.status = ApprovalStatus.rejected
     elif action == DecisionAction.regenerate:
         approval.status = ApprovalStatus.superseded
@@ -162,8 +179,10 @@ async def decide(
         approval.resolution = {"action": action.value}
     elif action == DecisionAction.rerun:
         if not confirm:
-            raise ValidationFailed("Re-running a call with an unknown outcome needs explicit confirmation",
-                                   details={"fields": [{"field": "confirm", "message": "Must be true"}]})
+            raise ValidationFailed(
+                "Re-running a call with an unknown outcome needs explicit confirmation",
+                details={"fields": [{"field": "confirm", "message": "Must be true"}]},
+            )
         approval.status = ApprovalStatus.approved
         approval.resolution = {"action": action.value}
 
@@ -180,12 +199,28 @@ async def decide(
         elif approval.status == ApprovalStatus.superseded:
             tool_call.status = ToolCallStatus.cancelled
 
-    await audit(session, event_type=AuditEventType.approval_decided, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="approval", entity_id=approval.id, execution_id=approval.execution_id,
-                payload={"action": action.value, "reason": reason, "feedback": feedback, "diff": diff,
-                         "tool": tool_call.namespaced_name if tool_call else None})
-    should_resume = execution.status in (ExecutionStatus.paused_for_review, ExecutionStatus.resuming,
-                                         ExecutionStatus.running, ExecutionStatus.queued)
+    await audit(
+        session,
+        event_type=AuditEventType.approval_decided,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="approval",
+        entity_id=approval.id,
+        execution_id=approval.execution_id,
+        payload={
+            "action": action.value,
+            "reason": reason,
+            "feedback": feedback,
+            "diff": diff,
+            "tool": tool_call.namespaced_name if tool_call else None,
+        },
+    )
+    should_resume = execution.status in (
+        ExecutionStatus.paused_for_review,
+        ExecutionStatus.resuming,
+        ExecutionStatus.running,
+        ExecutionStatus.queued,
+    )
     await session.flush()
     await session.execute(
         sa.update(Execution)
@@ -195,22 +230,32 @@ async def decide(
     await session.commit()
 
     tool_event = {
-        DecisionAction.approve: EventType.tool_approved, DecisionAction.edit: EventType.tool_approved,
-        DecisionAction.reject: EventType.tool_rejected, DecisionAction.regenerate: EventType.tool_rejected,
+        DecisionAction.approve: EventType.tool_approved,
+        DecisionAction.edit: EventType.tool_approved,
+        DecisionAction.reject: EventType.tool_rejected,
+        DecisionAction.regenerate: EventType.tool_rejected,
     }.get(action)
     await publish_execution_event(
-        workspace_id=approval.workspace_id, execution_id=approval.execution_id, type=EventType.approval_decided,
-        approval_id=approval.id, node_id=approval.node_id,
+        workspace_id=approval.workspace_id,
+        execution_id=approval.execution_id,
+        type=EventType.approval_decided,
+        approval_id=approval.id,
+        node_id=approval.node_id,
         payload={"action": action.value, "decided_by": ctx.email, "reason": reason, "diff": diff},
     )
     if tool_event is not None and tool_call is not None:
         await publish_execution_event(
-            workspace_id=approval.workspace_id, execution_id=approval.execution_id, type=tool_event,
-            tool_call_id=tool_call.id, node_id=approval.node_id, payload={"tool": tool_call.namespaced_name},
+            workspace_id=approval.workspace_id,
+            execution_id=approval.execution_id,
+            type=tool_event,
+            tool_call_id=tool_call.id,
+            node_id=approval.node_id,
+            payload={"tool": tool_call.namespaced_name},
         )
     if should_resume:
-        await get_queue().enqueue(Job.resume_execution, str(approval.execution_id),
-                                  job_id=resume_job_id(approval.execution_id))
+        await get_queue().enqueue(
+            Job.resume_execution, str(approval.execution_id), job_id=resume_job_id(approval.execution_id)
+        )
     return approval
 
 
