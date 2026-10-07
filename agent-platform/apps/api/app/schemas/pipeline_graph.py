@@ -17,14 +17,15 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import NodeType
+from app.schemas.common import Schema
 
 
-class Position(BaseModel):
+class Position(Schema):
     x: float = 0
     y: float = 0
 
 
-class MapConfig(BaseModel):
+class MapConfig(Schema):
     """Run the node once per element of a list (fan-out inside the node)."""
 
     over: str = Field(description="Expression that evaluates to a list, e.g. nodes.filter.output.shortlist")
@@ -39,7 +40,7 @@ class ErrorMode(StrEnum):
     pause = "pause"
 
 
-class ErrorPolicy(BaseModel):
+class ErrorPolicy(Schema):
     mode: ErrorMode = ErrorMode.retry
     max_attempts: int = Field(default=3, ge=1, le=10)
     backoff_seconds: float = Field(default=1.0, ge=0, le=300)
@@ -48,7 +49,7 @@ class ErrorPolicy(BaseModel):
     )
 
 
-class ModelSelection(BaseModel):
+class ModelSelection(Schema):
     model_id: uuid.UUID | None = Field(default=None, description="llm_models.id; null uses the workspace default")
     temperature: float | None = Field(default=None, ge=0, le=2)
     max_tokens: int | None = Field(default=None, ge=1, le=128_000)
@@ -57,13 +58,13 @@ class ModelSelection(BaseModel):
     )
 
 
-class PromptRef(BaseModel):
+class PromptRef(Schema):
     template_id: uuid.UUID | None = None
     version: int | None = Field(default=None, description="Pinned version; null takes the latest at run time")
     inline: str | None = Field(default=None, description="Used when no template is referenced")
 
 
-class TriggerConfig(BaseModel):
+class TriggerConfig(Schema):
     input_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
     allow_manual: bool = True
     allow_schedule: bool = True
@@ -93,12 +94,12 @@ class AgentConfig(ModelSelection):
     output_schema: dict[str, Any] | None = None
 
 
-class MCPToolConfig(BaseModel):
+class MCPToolConfig(Schema):
     tool: str = Field(description="Namespaced tool name: server__tool")
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
-class ConditionConfig(BaseModel):
+class ConditionConfig(Schema):
     expression: str = Field(description="Boolean expression; true/false edges route on it")
 
 
@@ -108,7 +109,7 @@ class TransformMode(StrEnum):
     template = "template"
 
 
-class TransformConfig(BaseModel):
+class TransformConfig(Schema):
     mode: TransformMode = TransformMode.expression
     expression: str | None = None
     source: str | None = Field(default=None, description="jsonpath mode: expression for the document")
@@ -116,7 +117,7 @@ class TransformConfig(BaseModel):
     template: dict[str, Any] | None = Field(default=None, description="template mode: object of =expressions")
 
 
-class HumanApprovalConfig(BaseModel):
+class HumanApprovalConfig(Schema):
     title: str = "Review required"
     instructions: str = ""
     data: str = Field(default="=input", description="Expression for the data under review")
@@ -124,21 +125,21 @@ class HumanApprovalConfig(BaseModel):
     expires_in_minutes: int | None = Field(default=None, ge=1)
 
 
-class NotificationConfig(BaseModel):
+class NotificationConfig(Schema):
     channel_ids: list[uuid.UUID] = Field(default_factory=list)
     message: str = Field(default="", description="Template")
 
 
-class DelayConfig(BaseModel):
+class DelayConfig(Schema):
     seconds: int | None = Field(default=None, ge=0, le=60 * 60 * 24 * 30)
     until: str | None = Field(default=None, description="Expression producing an ISO datetime")
 
 
-class EndConfig(BaseModel):
+class EndConfig(Schema):
     output: dict[str, Any] | str = Field(default="=nodes", description="Expression or object template")
 
 
-class _NodeBase(BaseModel):
+class _NodeBase(Schema):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
@@ -227,7 +228,7 @@ class EdgeBranch(StrEnum):
     error = "error"
 
 
-class PipelineEdge(BaseModel):
+class PipelineEdge(Schema):
     model_config = ConfigDict(extra="forbid")
 
     id: str
@@ -238,7 +239,7 @@ class PipelineEdge(BaseModel):
     )
 
 
-class PipelineGraph(BaseModel):
+class PipelineGraph(Schema):
     model_config = ConfigDict(extra="forbid")
 
     nodes: list[PipelineNode] = Field(default_factory=list)

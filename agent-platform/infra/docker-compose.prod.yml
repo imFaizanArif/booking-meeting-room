@@ -1,0 +1,18 @@
+# Production overrides. Secrets must come from the environment (no defaults here).
+x-prod-env: &prod-env
+  SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY:?set a 32-byte base64 key}
+  REALTIME_TOKEN_SECRET: ${REALTIME_TOKEN_SECRET:?set a random secret}
+  COOKIE_SECURE: "true"
+  SEED_DEMO: "false"
+  ENVIRONMENT: production
+  CORS_ORIGINS: ${CORS_ORIGINS:?e.g. ["https://agents.example.com"]}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:?https://agents.example.com}
+  OUTBOUND_ALLOWLIST: ${OUTBOUND_ALLOWLIST:-[]}
+
+services:
+  mock-jobs: { profiles: ["demo"] }
+  migrate: { environment: *prod-env }
+  api: { environment: *prod-env, restart: unless-stopped }
+  worker: { environment: *prod-env, restart: unless-stopped, deploy: { replicas: 2 } }
+  scheduler: { environment: *prod-env, restart: unless-stopped, deploy: { replicas: 2 } }
+  web: { restart: unless-stopped }

@@ -1,0 +1,120 @@
+/* React Flow skin for the builder. Token colours only; base.css provides layout. */
+
+.flow {
+  --xy-edge-stroke: var(--border-strong);
+  --xy-edge-stroke-selected: var(--ring);
+  --xy-edge-stroke-width: 1.25;
+  --xy-connectionline-stroke: var(--ring);
+  --xy-connectionline-stroke-width: 1.25;
+  --xy-edge-label-background-color: var(--surface);
+  --xy-edge-label-color: var(--fg-muted);
+  --xy-selection-background-color: color-mix(in oklch, var(--ring) 8%, transparent);
+  --xy-selection-border: 1px solid color-mix(in oklch, var(--ring) 60%, transparent);
+  background: var(--bg);
+}
+
+.flow :global(.react-flow__edge-path) {
+  stroke: var(--xy-edge-stroke);
+  stroke-width: var(--xy-edge-stroke-width);
+}
+
+.flow :global(.react-flow__edge.selected .react-flow__edge-path),
+.flow :global(.react-flow__edge:focus-visible .react-flow__edge-path) {
+  stroke: var(--xy-edge-stroke-selected);
+  stroke-width: 1.75;
+}
+
+.flow :global(.react-flow__edge.error-edge .react-flow__edge-path) {
+  stroke: var(--danger);
+  stroke-dasharray: 4 3;
+}
+
+.flow :global(.react-flow__edge-textbg) {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+
+.flow :global(.react-flow__edge-text) {
+  fill: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.flow :global(.react-flow__edge.error-edge .react-flow__edge-text) {
+  fill: var(--danger);
+}
+
+.flow :global(.react-flow__connection-path) {
+  stroke: var(--ring);
+  stroke-width: 1.25;
+}
+
+.flow :global(.react-flow__handle) {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.flow :global(.react-flow__handle:hover),
+.flow :global(.react-flow__handle.connectingfrom),
+.flow :global(.react-flow__handle.connectingto.valid) {
+  border-color: var(--ring);
+  background: var(--ring);
+}
+
+.flow :global(.react-flow__handle.error-handle) {
+  border-color: var(--danger);
+}
+
+.flow :global(.react-flow__node) {
+  border-radius: 6px;
+}
+
+.flow :global(.react-flow__node:focus-visible) {
+  outline: none;
+}
+
+.flow :global(.react-flow__controls) {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.flow :global(.react-flow__controls-button) {
+  width: 26px;
+  height: 26px;
+  background: var(--surface);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+
+.flow :global(.react-flow__controls-button:last-child) {
+  border-bottom: none;
+}
+
+.flow :global(.react-flow__controls-button:hover) {
+  background: var(--subtle);
+  color: var(--fg);
+}
+
+.flow :global(.react-flow__controls-button svg) {
+  fill: currentColor;
+  max-width: 11px;
+  max-height: 11px;
+}
+
+.flow :global(.react-flow__minimap) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.flow :global(.react-flow__attribution) {
+  display: none;
+}

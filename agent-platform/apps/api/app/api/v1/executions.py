@@ -8,6 +8,7 @@ from app.api.deps import DB, Auth
 from app.core.enums import ExecutionStatus
 from app.events.schemas import ExecutionEventOut
 from app.schemas.common import Page
+from app.schemas.pipeline_graph import PipelineGraph
 from app.schemas.runtime import (
     ControlIn,
     ExecutionDetail,
@@ -16,7 +17,6 @@ from app.schemas.runtime import (
     LLMUsageOut,
     ToolCallOut,
 )
-from app.schemas.pipeline_graph import PipelineGraph
 from app.services import executions as service
 from app.services.approvals import _enrich
 from app.services.dashboard import execution_outs

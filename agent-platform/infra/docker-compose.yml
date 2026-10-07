@@ -1,0 +1,76 @@
+# Local stack: `docker compose -f infra/docker-compose.yml up --build`
+# Production overrides: add `-f infra/docker-compose.prod.yml` (see docs/DEPLOYMENT.md).
+x-api-env: &api-env
+  DATABASE_URL: postgresql+asyncpg://agent:agent@postgres:5432/agent_platform
+  REDIS_URL: redis://redis:6379/0
+  SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY:-ZGV2LW9ubHktbWFzdGVyLWtleS1jaGFuZ2UtbWUtMzI=}
+  REALTIME_TOKEN_SECRET: ${REALTIME_TOKEN_SECRET:-dev-only-realtime-secret-change-me}
+  CORS_ORIGINS: '["http://localhost:3000"]'
+  PUBLIC_WEB_URL: http://localhost:3000
+  OUTBOUND_ALLOWLIST: '["mock-jobs"]'
+  MOCK_JOBS_URL: http://mock-jobs:8811/mcp
+  SEED_DEMO: "true"
+  LOG_JSON: "true"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: agent, POSTGRES_PASSWORD: agent, POSTGRES_DB: agent_platform }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U agent"], interval: 3s, retries: 20 }
+
+  redis:
+    image: redis:7-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, retries: 20 }
+
+  mock-jobs:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    command: ["python", "-m", "mock_mcp.jobs_server", "--http", "--host", "0.0.0.0", "--port", "8811"]
+    volumes: [mockstate:/var/lib/mock-mcp]
+
+  migrate:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    command: ["python", "-m", "app.db.migrate"]
+    environment: *api-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      mock-jobs: { condition: service_started }
+    restart: on-failure
+
+  api:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    environment: *api-env
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    healthcheck: { test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"], interval: 5s, retries: 20 }
+
+  worker:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    command: ["python", "-m", "app.workers.worker"]
+    environment: *api-env
+    volumes: [mockstate:/var/lib/mock-mcp]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
+
+  scheduler:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    command: ["python", "-m", "app.workers.scheduler"]
+    environment: *api-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  web:
+    build: { context: .., dockerfile: infra/docker/web.Dockerfile }
+    environment: { API_URL: http://api:8000 }
+    ports: ["3000:3000"]
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  mockstate:

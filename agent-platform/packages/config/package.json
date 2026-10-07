@@ -1,0 +1,6 @@
+{
+  "name": "@agent-platform/config",
+  "private": true,
+  "version": "0.1.0",
+  "files": ["tsconfig.base.json"]
+}
