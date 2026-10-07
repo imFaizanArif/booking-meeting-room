@@ -1,7 +1,10 @@
-# Local stack: `docker compose -f infra/docker-compose.yml up --build`
+# Stack: `docker compose --env-file .env -f infra/docker-compose.yml up --build` (or `make compose-up`).
+# The database is Supabase: set DATABASE_URL in .env. There is no Postgres container.
 # Production overrides: add `-f infra/docker-compose.prod.yml` (see docs/DEPLOYMENT.md).
 x-api-env: &api-env
-  DATABASE_URL: postgresql+asyncpg://agent:agent@postgres:5432/agent_platform
+  DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env to your Supabase connection string}
+  DATABASE_POOLER: ${DATABASE_POOLER:-auto}
+  DATABASE_SSL: ${DATABASE_SSL:-auto}
   REDIS_URL: redis://redis:6379/0
   SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY:-ZGV2LW9ubHktbWFzdGVyLWtleS1jaGFuZ2UtbWUtMzI=}
   REALTIME_TOKEN_SECRET: ${REALTIME_TOKEN_SECRET:-dev-only-realtime-secret-change-me}
@@ -13,12 +16,6 @@ x-api-env: &api-env
   LOG_JSON: "true"
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment: { POSTGRES_USER: agent, POSTGRES_PASSWORD: agent, POSTGRES_DB: agent_platform }
-    volumes: [pgdata:/var/lib/postgresql/data]
-    healthcheck: { test: ["CMD-SHELL", "pg_isready -U agent"], interval: 3s, retries: 20 }
-
   redis:
     image: redis:7-alpine
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, retries: 20 }
@@ -33,7 +30,6 @@ services:
     command: ["python", "-m", "app.db.migrate"]
     environment: *api-env
     depends_on:
-      postgres: { condition: service_healthy }
       mock-jobs: { condition: service_started }
     restart: on-failure
 
@@ -72,5 +68,4 @@ services:
       api: { condition: service_healthy }
 
 volumes:
-  pgdata:
   mockstate:

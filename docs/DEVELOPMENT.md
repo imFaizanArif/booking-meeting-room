@@ -4,9 +4,9 @@
 
 ```bash
 make install                    # uv sync (Python workspace) + pnpm install
-cp .env.example apps/api/.env   # see settings below
+cp .env.example apps/api/.env   # set DATABASE_URL to your Supabase connection string
 make mock                       # Demo Jobs MCP server on :8811 (Streamable HTTP)
-make migrate                    # alembic upgrade + LangGraph checkpoint tables + demo seed
+make migrate                    # alembic upgrade + checkpoint tables + RLS lock-down + demo seed
 make api worker scheduler web   # each in its own terminal
 ```
 
@@ -18,16 +18,21 @@ Log in at http://localhost:3000 as `admin@example.com` / `admin-password` (owner
 | Command | What |
 | --- | --- |
 | `pnpm turbo run lint typecheck test` | Everything, both languages |
-| `cd apps/api && uv run pytest` | Python unit, integration and API tests (needs Postgres + Redis) |
+| `cd apps/api && uv run pytest` | Python unit tests; database tests too when `TEST_DATABASE_URL` is set (needs Redis) |
 | `cd apps/api && uv run ruff check app tests && uv run mypy app` | Python lint and types |
 | `cd apps/web && pnpm typecheck && pnpm lint && pnpm test` | Web types, lint, Vitest |
 | `cd apps/web && pnpm e2e` | Playwright end-to-end demo run (stack must be running) |
 | `pnpm check:client` | Fails if the generated API client is out of date |
 | `make load-test` | 50 concurrent demo executions |
 
-Integration tests use the database named by `DATABASE_URL` in `apps/api/tests/conftest.py`
-(default `agent_platform_test`) and Redis db 5, start their own Streamable HTTP mock server
-and spawn the stdio mock servers. Real-provider tests are opt-in (`-m real_llm` with
+Database (integration and API) tests run against `TEST_DATABASE_URL`, read from the environment
+or `apps/api/.env`. It must be a **separate** Supabase database: a second project or a Supabase
+branch. Each run drops and recreates the platform's own tables there (never the `public` schema
+and never other tables), so it must not be the database you develop in; the run refuses to start
+if it equals `DATABASE_URL`. Use the direct or session connection string, not the transaction
+pooler on port 6543. Without `TEST_DATABASE_URL` those tests are skipped and the unit tests still
+run. Tests also use Redis db 5, start their own Streamable HTTP mock server and spawn the stdio
+mock servers. Real-provider tests are opt-in (`-m real_llm` with
 `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` set).
 
 ## Settings (environment)
@@ -36,6 +41,9 @@ All settings are in `app/core/config.py` and listed in `.env.example`. Notable:
 
 | Variable | Purpose |
 | --- | --- |
+| `DATABASE_URL` | Supabase connection string (required). `postgresql://` is fine; the asyncpg driver is added |
+| `TEST_DATABASE_URL` | Separate Supabase database for database tests (optional) |
+| `DATABASE_POOLER`, `DATABASE_SSL` | `auto` detects Supabase's transaction pooler and TLS from the URL |
 | `SECRETS_MASTER_KEY` | base64 32-byte key wrapping every secret's data key. Required in production |
 | `REALTIME_TOKEN_SECRET` | HMAC key for SSE tokens |
 | `OUTBOUND_ALLOWLIST` | JSON list of hosts/CIDRs allowed to resolve to private addresses (SSRF guard) |

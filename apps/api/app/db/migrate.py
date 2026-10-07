@@ -1,4 +1,5 @@
-"""`python -m app.db.migrate [--seed]`: apply migrations, set up checkpoint tables, seed demo data."""
+"""`python -m app.db.migrate [--seed]`: apply migrations, set up checkpoint tables, close the platform's
+tables to Supabase's Data API, seed demo data."""
 
 from __future__ import annotations
 
@@ -12,7 +13,8 @@ from alembic.config import Config
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.session import dispose_engine, session_factory
+from app.db.session import dispose_engine, get_engine, session_factory
+from app.db.supabase import lock_down
 from app.workers.checkpointer import open_checkpointer
 
 
@@ -25,6 +27,13 @@ def upgrade() -> None:
 async def setup_checkpointer() -> None:
     async with open_checkpointer(max_size=1):
         pass
+
+
+async def restrict_data_api() -> list[str]:
+    async with get_engine().begin() as conn:
+        tables = await lock_down(conn)
+    await dispose_engine()
+    return tables
 
 
 async def seed(discover: bool) -> dict[str, object]:
@@ -45,6 +54,8 @@ def main() -> None:
     configure_logging(settings.log_level, json=False)
     upgrade()
     asyncio.run(setup_checkpointer())
+    tables = asyncio.run(restrict_data_api())
+    print(f"Row Level Security on {len(tables)} tables; Data API roles revoked")
     if args.seed or settings.seed_demo:
         print(json.dumps(asyncio.run(seed(not args.no_discover)), indent=2))
 

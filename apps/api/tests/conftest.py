@@ -29,16 +29,39 @@ def _free_port() -> int:
 
 JOBS_PORT = int(os.environ.get("TEST_MOCK_JOBS_PORT") or _free_port())
 STATE_DIR = tempfile.mkdtemp(prefix="ap-test-mock-mcp-")
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres@localhost:5432/agent_platform_test"
-# Every session drops and recreates the schema and flushes Redis db 5, so two concurrent sessions
+
+
+def _env(name: str) -> str:
+    """From the environment, else from apps/api/.env (where developers keep their URLs)."""
+    from dotenv import dotenv_values
+
+    value = os.environ.get(name) or dotenv_values(Path(__file__).resolve().parents[1] / ".env").get(name) or ""
+    return value.strip()
+
+
+def _asyncpg(url: str) -> str:
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+asyncpg://" + url.removeprefix(prefix)
+    return url
+
+
+# Database tests need their own Supabase database: a second project, or a Supabase branch. They
+# drop and recreate the platform's tables, so this must never be the database you work in.
+TEST_DATABASE_URL = _asyncpg(_env("TEST_DATABASE_URL"))
+_APP_DATABASE_URL = _asyncpg(_env("DATABASE_URL"))
+if TEST_DATABASE_URL and TEST_DATABASE_URL == _APP_DATABASE_URL:
+    raise RuntimeError("TEST_DATABASE_URL must point at a separate Supabase database, not DATABASE_URL")
+DB_TESTS_SKIP_REASON = "set TEST_DATABASE_URL to a separate Supabase database to run database tests"
+# Every session drops and recreates the tables and flushes Redis db 5, so two concurrent sessions
 # (two engineers, an IDE runner and a terminal) would wreck each other. They take turns instead.
-_SESSION_LOCK_DSN = "postgresql://postgres@localhost:5432/agent_platform_test"
 _SESSION_LOCK_KEY = 0x61705F74657374  # "ap_test"
 
 os.environ.update(
     {
         "ENVIRONMENT": "test",
-        "DATABASE_URL": TEST_DATABASE_URL,
+        # Unit tests never connect; the placeholder only satisfies the required setting.
+        "DATABASE_URL": TEST_DATABASE_URL or "postgresql+asyncpg://test-database-not-configured.invalid/postgres",
         "REDIS_URL": "redis://localhost:6379/5",
         "OUTBOUND_ALLOWLIST": '["127.0.0.1","localhost"]',
         "SEED_DEMO": "false",
@@ -48,7 +71,6 @@ os.environ.update(
         "LOG_LEVEL": "INFO",
     }
 )
-assert "agent_platform_test" in os.environ["DATABASE_URL"]
 
 
 class LogSink(io.TextIOBase):
@@ -92,7 +114,7 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.enums import Role  # noqa: E402
 from app.workers.queue import Job, set_queue  # noqa: E402
 
-assert get_settings().database_url == TEST_DATABASE_URL
+assert not TEST_DATABASE_URL or get_settings().database_url == TEST_DATABASE_URL
 
 
 # ---- fake queue ---------------------------------------------------------------------------------
@@ -171,10 +193,15 @@ def reset_effects() -> None:
 
 
 async def _reset_schema() -> None:
-    engine = create_async_engine(TEST_DATABASE_URL, isolation_level="AUTOCOMMIT")
+    """Drop the platform's own tables (never the whole schema: Supabase owns `public`)."""
+    from app.db.session import engine_kwargs
+    from app.db.supabase import platform_tables
+
+    engine = create_async_engine(TEST_DATABASE_URL, isolation_level="AUTOCOMMIT", **engine_kwargs())
     async with engine.connect() as conn:
-        await conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE"))
-        await conn.execute(sa.text("CREATE SCHEMA public"))
+        names = ", ".join(f'"{name}"' for name in platform_tables())
+        await conn.execute(sa.text(f"DROP TABLE IF EXISTS {names} CASCADE"))
+        await conn.execute(sa.text("DROP FUNCTION IF EXISTS audit_events_append_only() CASCADE"))
     await engine.dispose()
 
 
@@ -199,7 +226,14 @@ def test_session_lock() -> Iterator[None]:
     """Cross-process lock held for the whole session: concurrent runs wait instead of colliding."""
     import psycopg
 
-    with psycopg.connect(_SESSION_LOCK_DSN, autocommit=True) as conn:
+    if not TEST_DATABASE_URL:
+        pytest.skip(DB_TESTS_SKIP_REASON)
+    if get_settings().db_pooler == "transaction":
+        raise RuntimeError(
+            "TEST_DATABASE_URL uses Supabase's transaction pooler (port 6543), which cannot hold the "
+            "session lock tests rely on. Use the direct or session pooler connection string."
+        )
+    with psycopg.connect(get_settings().sync_database_url, autocommit=True) as conn:
         conn.execute("SELECT pg_advisory_lock(%s)", (_SESSION_LOCK_KEY,))
         try:
             yield
@@ -211,10 +245,15 @@ def test_session_lock() -> Iterator[None]:
 async def migrated(test_session_lock: None) -> AsyncIterator[None]:
     import asyncio
 
-    from app.db.migrate import upgrade
+    from app.db.migrate import setup_checkpointer, upgrade
+    from app.db.session import get_engine
+    from app.db.supabase import lock_down
 
     await _reset_schema()
     await asyncio.to_thread(upgrade)  # alembic's env.py runs its own event loop
+    await setup_checkpointer()  # same order as `python -m app.db.migrate`
+    async with get_engine().begin() as conn:
+        await lock_down(conn)
     yield
     from app.core.redis import close_redis
     from app.db.session import dispose_engine

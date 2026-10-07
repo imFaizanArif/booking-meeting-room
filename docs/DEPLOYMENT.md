@@ -10,8 +10,8 @@
 | migrate | `python -m app.db.migrate` | once per release, before api/worker start |
 | web | `node apps/web/server.js` (Next standalone) | horizontally |
 
-Postgres 16 and Redis 7 are required. Redis holds only the job queue, pub/sub and rate-limit
-buckets; losing it loses nothing durable (the scheduler re-enqueues from Postgres).
+Supabase (the database) and Redis 7 are required. Redis holds only the job queue, pub/sub and
+rate-limit buckets; losing it loses nothing durable (the scheduler re-enqueues from Supabase).
 
 ## Docker Compose (single host)
 
@@ -37,13 +37,13 @@ SSE note: make sure the proxy does not buffer `text/event-stream` responses
   stores `key_version` for this).
 - `REALTIME_TOKEN_SECRET` can be rotated at any time (tokens last 120 seconds).
 
-## Database
+## Database (Supabase)
 
-### Supabase (or any hosted Postgres)
+### Supabase
 
-Supabase is plain Postgres 15+, so nothing in the schema changes. Set `DATABASE_URL` to one of the
-connection strings from **Project Settings → Database**, with the scheme changed to
-`postgresql+asyncpg://`:
+Supabase is the only supported database; there is no Postgres container or local default. Set
+`DATABASE_URL` to one of the connection strings from **Project Settings → Database**, as shown
+(`postgresql://…`); the asyncpg driver prefix is added automatically:
 
 | Mode | Host and port | Use for |
 | --- | --- | --- |
@@ -60,9 +60,15 @@ connection strings from **Project Settings → Database**, with the scheme chang
 - Keep `DATABASE_POOL_SIZE` × (API replicas + workers) under the plan's connection limit.
 - Redis is still required (queue and pub/sub); Supabase does not replace it. Any managed Redis
   (Upstash, Redis Cloud, ElastiCache) works via `REDIS_URL`.
-- Supabase Row Level Security is not used: the app connects as a server role and enforces
-  workspace isolation itself. Do not expose these tables through Supabase's REST API; leave RLS on
-  with no policies, or revoke `anon`/`authenticated` access to the schema.
+- Use a dedicated Supabase project. The platform creates tables in `public` with generic names
+  (`users`, `workspaces`, …) that would collide with another app's tables.
+- **Data API lock-down.** The platform never uses Supabase's REST/GraphQL Data API; the server
+  connects as the table owner and enforces workspace isolation itself. `python -m app.db.migrate`
+  therefore enables Row Level Security with no policies on every platform table (including the
+  checkpoint tables) and revokes the `anon` and `authenticated` roles' privileges on them. The
+  owner bypasses RLS, so the app is unaffected; the anon key sees nothing. Only the platform's own
+  tables are touched. It is idempotent and runs on every migrate, so new tables are covered.
+  Do not add RLS policies for these tables.
 
 ### Roles
 

@@ -4,7 +4,7 @@ install:            ## Install Python and JS dependencies
 	uv sync --all-packages --all-groups
 	pnpm install
 
-migrate:            ## Apply migrations, create checkpoint tables, seed demo data
+migrate:            ## Apply migrations to Supabase, create checkpoint tables, seed demo data
 	cd apps/api && uv run python -m app.db.migrate
 
 api:                ## FastAPI on :8000
@@ -38,7 +38,7 @@ check-client:       ## Fail if the committed client is stale (CI)
 	bash scripts/gen-client.sh --check
 
 compose-up:         ## Whole stack in Docker
-	docker compose -f infra/docker-compose.yml up --build
+	docker compose --env-file .env -f infra/docker-compose.yml up --build
 
 load-test:          ## Start N concurrent demo executions and report timings
 	cd apps/api && uv run python ../../scripts/load_test.py --executions 50

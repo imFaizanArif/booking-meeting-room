@@ -3,7 +3,7 @@
 A self-hostable control plane for autonomous agent pipelines: configure LLM providers and
 MCP servers as data, build pipelines as DAGs with bounded agent nodes, gate every write
 behind human approval, and watch executions live. Durable by design: LangGraph checkpoints in
-Postgres, idempotent tool calls, crash recovery that never re-runs a destructive action.
+Supabase Postgres, idempotent tool calls, crash recovery that never re-runs a destructive action.
 
 ```
 Next.js console ──REST/SSE──► FastAPI (validate, persist, enqueue)
@@ -11,17 +11,25 @@ Next.js console ──REST/SSE──► FastAPI (validate, persist, enqueue)
                         worker(s) ─┴─ LangGraph ─ LLM adapters (OpenAI · Anthropic · Gemini · Ollama · fake)
                                    │            └ ToolRouter ─ policy ─ HITL ─ MCP (stdio · Streamable HTTP · SSE)
                         scheduler ─┘ (enqueue only: schedules, timers, recovery, approval expiry)
-Postgres: config, versions, checkpoints, read model, tool calls, approvals, usage, append-only audit
+Supabase (Postgres): config, versions, checkpoints, read model, tool calls, approvals, usage, append-only audit
 ```
+
+## Database: Supabase
+
+Supabase is the only supported database; there is no local Postgres. Create a Supabase project
+(a dedicated one is best), copy the connection string from **Project Settings → Database**, and
+put it in `DATABASE_URL`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#database-supabase) for
+the connection modes. Redis is still needed for the job queue and live updates.
 
 ## Quick start (Docker)
 
 ```bash
-docker compose -f infra/docker-compose.yml up --build
+cp .env.example .env              # set DATABASE_URL to your Supabase connection string
+docker compose --env-file .env -f infra/docker-compose.yml up --build
 open http://localhost:3000        # admin@example.com / admin-password
 ```
 
-Migrations and the demo seed run automatically. The demo needs no API keys: an offline
+Migrations and the demo seed run automatically against Supabase. The demo needs no API keys: an offline
 fake provider is active, and OpenAI, Anthropic, Google Gemini and Ollama are seeded inactive until
 you add keys on **Models**. To use Gemini: **Models → Google Gemini → Edit**, paste the API key from
 Google AI Studio, **Test connection**, then activate it and pick `gemini-2.5-flash` or
@@ -29,14 +37,14 @@ Google AI Studio, **Test connection**, then activate it and pick `gemini-2.5-fla
 
 ## Quick start (local, no Docker)
 
-Requirements: Python 3.12+, [uv](https://docs.astral.sh/uv/), Node 22 + pnpm 10, Postgres 16,
-Redis 7.
+Requirements: Python 3.12+, [uv](https://docs.astral.sh/uv/), Node 22 + pnpm 10, Redis 7,
+and a Supabase project.
 
 ```bash
 make install
-cp .env.example apps/api/.env              # set SECRETS_MASTER_KEY etc.
+cp .env.example apps/api/.env              # set DATABASE_URL (Supabase), SECRETS_MASTER_KEY etc.
 make mock &                                # demo jobs MCP server (Streamable HTTP :8811)
-make migrate                               # migrations + checkpoint tables + demo seed
+make migrate                               # migrations + checkpoint tables + RLS + demo seed
 make api & make worker & make scheduler &  # :8000
 make web                                   # :3000
 ```

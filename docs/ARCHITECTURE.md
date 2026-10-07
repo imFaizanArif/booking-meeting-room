@@ -328,6 +328,7 @@ by the scheduler sweep, which then enqueues the resume.
 | [0006](decisions/0006-map-fanout-scope.md) | map fan-out inside a node; no mapped approvals |
 | [0007](decisions/0007-llm-adapters-over-httpx.md) | adapters over httpx, no LiteLLM |
 | [0008](decisions/0008-uv-workspace-layout.md) | layout changes vs. the prompt |
+| [0009](decisions/0009-supabase-only-database.md) | Supabase is the only database; Data API lock-down |
 
 ## 11. Risks and mitigations
 

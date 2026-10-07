@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,10 +16,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = True
 
-    database_url: str = "postgresql+asyncpg://postgres@localhost:5432/agent_platform"
+    # Supabase is the only database. Paste the connection string from Project Settings -> Database;
+    # `postgres://` / `postgresql://` are rewritten to the asyncpg driver.
+    database_url: str = Field(description="Supabase Postgres connection string")
     redis_url: str = "redis://localhost:6379/0"
-    # Hosted Postgres (Supabase, Neon, RDS behind PgBouncer). "auto" detects Supabase from the URL:
-    # port 6543 = transaction pooler (no prepared statements), anything on *.supabase.* needs TLS.
+    # "auto" reads the Supabase URL: port 6543 = transaction pooler (no prepared statements),
+    # and every *.supabase.co / *.supabase.com host needs TLS.
     database_pooler: Literal["auto", "none", "session", "transaction"] = "auto"
     database_ssl: Literal["auto", "disable", "require"] = "auto"
     database_pool_size: int = 10
@@ -55,6 +57,17 @@ class Settings(BaseSettings):
     seed_demo: bool = True
     demo_admin_email: str = "admin@example.com"
     demo_admin_password: SecretStr = SecretStr("admin-password")
+
+    @field_validator("database_url")
+    @classmethod
+    def _asyncpg_scheme(cls, value: str) -> str:
+        value = value.strip()
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+asyncpg://" + value.removeprefix(prefix)
+        if not value.startswith("postgresql+asyncpg://"):
+            raise ValueError("DATABASE_URL must be a Supabase Postgres connection string (postgresql://...)")
+        return value
 
     @property
     def sync_database_url(self) -> str:
