@@ -36,9 +36,7 @@ def to_ollama_messages(req: LLMRequest) -> list[dict[str, Any]]:
         elif isinstance(msg, AssistantMessage):
             item: dict[str, Any] = {"role": "assistant", "content": msg.content or ""}
             if msg.tool_calls:
-                item["tool_calls"] = [
-                    {"function": {"name": c.name, "arguments": c.arguments}} for c in msg.tool_calls
-                ]
+                item["tool_calls"] = [{"function": {"name": c.name, "arguments": c.arguments}} for c in msg.tool_calls]
             out.append(item)
         elif isinstance(msg, ToolResultMessage):
             out.append({"role": "tool", "content": msg.content, "tool_name": msg.name})
@@ -69,14 +67,13 @@ class OllamaAdapter(HttpAdapter):
         body, latency_ms = await self.post_json("/api/chat", self.build_payload(req))
         message = body.get("message") or {}
         calls = [
-            ToolCallRequest(id=f"call_{i}", name=c["function"]["name"],
-                            arguments=parse_arguments(c["function"].get("arguments")))
+            ToolCallRequest(
+                id=f"call_{i}", name=c["function"]["name"], arguments=parse_arguments(c["function"].get("arguments"))
+            )
             for i, c in enumerate(message.get("tool_calls") or [])
         ]
         done = body.get("done_reason")
-        stop = StopReason.tool_use if calls else (
-            StopReason.max_tokens if done == "length" else StopReason.end_turn
-        )
+        stop = StopReason.tool_use if calls else (StopReason.max_tokens if done == "length" else StopReason.end_turn)
         return LLMResponse(
             message=AssistantMessage(content=message.get("content") or None, tool_calls=calls),
             stop_reason=stop,

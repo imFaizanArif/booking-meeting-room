@@ -48,13 +48,29 @@ class ServerSpec:
 
 
 def server_config_hash(
-    transport: str, command: str | None, args: list[Any] | tuple[Any, ...], cwd: str | None,
-    url: str | None, env_refs: dict[str, Any], header_refs: dict[str, Any], isolation: str,
+    transport: str,
+    command: str | None,
+    args: list[Any] | tuple[Any, ...],
+    cwd: str | None,
+    url: str | None,
+    env_refs: dict[str, Any],
+    header_refs: dict[str, Any],
+    isolation: str,
 ) -> str:
     """Hash of connection-relevant config (refs, not values). A change retires pooled connections."""
     return hashlib.sha256(
-        canonical_json({"t": transport, "c": command, "a": list(args), "cwd": cwd, "u": url,
-                        "e": env_refs, "h": header_refs, "i": isolation}).encode()
+        canonical_json(
+            {
+                "t": transport,
+                "c": command,
+                "a": list(args),
+                "cwd": cwd,
+                "u": url,
+                "e": env_refs,
+                "h": header_refs,
+                "i": isolation,
+            }
+        ).encode()
     ).hexdigest()
 
 

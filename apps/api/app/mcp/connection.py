@@ -35,8 +35,12 @@ from app.mcp.types import (
 log = get_logger(__name__)
 StatusCallback = Callable[[ServerSpec, ServerStatus, str | None], Awaitable[None]]
 _TRANSPORT_ERRORS = (
-    anyio.ClosedResourceError, anyio.BrokenResourceError, anyio.EndOfStream,
-    ConnectionError, OSError, EOFError,
+    anyio.ClosedResourceError,
+    anyio.BrokenResourceError,
+    anyio.EndOfStream,
+    ConnectionError,
+    OSError,
+    EOFError,
 )
 _MAX_PAGES = 50
 
@@ -44,7 +48,9 @@ _MAX_PAGES = 50
 def to_discovered(tool: Tool) -> DiscoveredTool:
     ann = tool.annotations.model_dump(by_alias=True, exclude_none=True) if tool.annotations else {}
     return DiscoveredTool(
-        name=tool.name, title=tool.title, description=tool.description,
+        name=tool.name,
+        title=tool.title,
+        description=tool.description,
         input_schema=dict(tool.input_schema or {}),
         output_schema=dict(tool.output_schema) if tool.output_schema else None,
         annotations=ann,
@@ -64,8 +70,12 @@ async def list_all_tools(session: ClientSession) -> list[DiscoveredTool]:
 
 
 class MCPConnection:
-    def __init__(self, spec: ServerSpec, on_status: StatusCallback | None = None,
-                 on_tools_changed: Callable[[ServerSpec], Awaitable[None]] | None = None) -> None:
+    def __init__(
+        self,
+        spec: ServerSpec,
+        on_status: StatusCallback | None = None,
+        on_tools_changed: Callable[[ServerSpec], Awaitable[None]] | None = None,
+    ) -> None:
         self.spec = spec
         self.status = ServerStatus.disconnected
         self.error: str | None = None
@@ -165,7 +175,11 @@ class MCPConnection:
             await self._session.send_ping()
 
     async def call_tool(
-        self, name: str, arguments: dict[str, Any], *, timeout_s: float | None = None,
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        *,
+        timeout_s: float | None = None,
         meta: dict[str, Any] | None = None,
     ) -> ToolResult:
         if self._session is None:
@@ -178,14 +192,18 @@ class MCPConnection:
             async with asyncio.timeout(timeout):
                 result = await self._session.call_tool(name, arguments, meta=meta)
         except TimeoutError as exc:
-            raise MCPToolTimeout(f"Tool {name} timed out after {timeout:.0f}s",
-                                 details={"tool": name, "timeout_s": timeout}) from exc
+            raise MCPToolTimeout(
+                f"Tool {name} timed out after {timeout:.0f}s", details={"tool": name, "timeout_s": timeout}
+            ) from exc
         except MCPError as exc:
-            raise MCPProtocolError(f"Server rejected {name}: {exc.message}",
-                                   details={"tool": name, "code": exc.code}) from exc
+            raise MCPProtocolError(
+                f"Server rejected {name}: {exc.message}", details={"tool": name, "code": exc.code}
+            ) from exc
         except _TRANSPORT_ERRORS as exc:
-            raise MCPTransportError(f"Connection to {self.spec.slug} failed during {name}",
-                                    details={"tool": name, "error": exc.__class__.__name__}) from exc
+            raise MCPTransportError(
+                f"Connection to {self.spec.slug} failed during {name}",
+                details={"tool": name, "error": exc.__class__.__name__},
+            ) from exc
         finally:
             self.in_flight -= 1
         duration_ms = int((time.perf_counter() - started) * 1000)

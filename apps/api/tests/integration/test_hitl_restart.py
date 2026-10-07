@@ -14,7 +14,10 @@ from tests.helpers import SUBMIT, approvals, db_execution, decide_as, pending_ap
 
 
 async def test_pause_restart_approve_executes_once(
-    operator_ctx: AuthContext, runners: RunnerFactory, fake_queue: FakeQueue, checkpointer: Any,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    fake_queue: FakeQueue,
+    checkpointer: Any,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     assert fake_queue.of(Job.run_execution) == [(str(execution_id),)]
@@ -52,4 +55,3 @@ async def test_pause_restart_approve_executes_once(
     assert await third_worker.run(execution_id) is None
     assert len(effects("jobs")) == 1
     assert call.namespaced_name == SUBMIT
-

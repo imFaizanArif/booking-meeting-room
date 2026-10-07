@@ -18,6 +18,7 @@ class ProviderType(StrEnum):
     openai = "openai"
     anthropic = "anthropic"
     ollama = "ollama"
+    gemini = "gemini"
     fake = "fake"
 
 

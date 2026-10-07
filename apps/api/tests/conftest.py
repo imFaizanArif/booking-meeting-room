@@ -19,9 +19,21 @@ from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any
 
-JOBS_PORT = int(os.environ.get("TEST_MOCK_JOBS_PORT", "8821"))
+
+def _free_port() -> int:
+    """An ephemeral port, so concurrent test sessions never fight over the mock jobs server."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+JOBS_PORT = int(os.environ.get("TEST_MOCK_JOBS_PORT") or _free_port())
 STATE_DIR = tempfile.mkdtemp(prefix="ap-test-mock-mcp-")
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres@localhost:5432/agent_platform_test"
+# Every session drops and recreates the schema and flushes Redis db 5, so two concurrent sessions
+# (two engineers, an IDE runner and a terminal) would wreck each other. They take turns instead.
+_SESSION_LOCK_DSN = "postgresql://postgres@localhost:5432/agent_platform_test"
+_SESSION_LOCK_KEY = 0x61705F74657374  # "ap_test"
 
 os.environ.update(
     {
@@ -93,8 +105,7 @@ class FakeQueue:
         self.jobs: list[tuple[Job, tuple[Any, ...], str | None]] = []
         self.connections: Any = None
 
-    async def enqueue(self, job: Job, *args: Any, job_id: str | None = None,
-                      defer_until: Any = None) -> str | None:
+    async def enqueue(self, job: Job, *args: Any, job_id: str | None = None, defer_until: Any = None) -> str | None:
         self.jobs.append((job, args, job_id))
         return job_id
 
@@ -131,7 +142,9 @@ def jobs_server() -> Iterator[str]:
     env = {**os.environ, "MOCK_MCP_STATE_DIR": STATE_DIR}
     proc = subprocess.Popen(
         [sys.executable, "-m", "mock_mcp.jobs_server", "--http", "--port", str(JOBS_PORT)],
-        env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     deadline = time.monotonic() + 20
     while not _port_open(JOBS_PORT):
@@ -182,7 +195,20 @@ async def checkpointer(migrated: None) -> AsyncIterator[Any]:
 
 
 @pytest.fixture(scope="session")
-async def migrated() -> AsyncIterator[None]:
+def test_session_lock() -> Iterator[None]:
+    """Cross-process lock held for the whole session: concurrent runs wait instead of colliding."""
+    import psycopg
+
+    with psycopg.connect(_SESSION_LOCK_DSN, autocommit=True) as conn:
+        conn.execute("SELECT pg_advisory_lock(%s)", (_SESSION_LOCK_KEY,))
+        try:
+            yield
+        finally:
+            conn.execute("SELECT pg_advisory_unlock(%s)", (_SESSION_LOCK_KEY,))
+
+
+@pytest.fixture(scope="session")
+async def migrated(test_session_lock: None) -> AsyncIterator[None]:
     import asyncio
 
     from app.db.migrate import upgrade
@@ -198,8 +224,9 @@ async def migrated() -> AsyncIterator[None]:
 
 
 @pytest.fixture(scope="session")
-async def seeded(migrated: None, checkpointer: Any, jobs_server: str, fake_queue: FakeQueue) -> AsyncIterator[
-        dict[str, Any]]:
+async def seeded(
+    migrated: None, checkpointer: Any, jobs_server: str, fake_queue: FakeQueue
+) -> AsyncIterator[dict[str, Any]]:
     from app.db.session import session_factory
     from app.seed.demo import seed_all
 
@@ -250,8 +277,12 @@ class RunnerFactory:
 
         manager = MCPConnectionManager()
         self.managers.append(manager)
-        return ExecutionRunner(checkpointer=self.checkpointer, connections=manager, queue=self.queue,
-                               worker_id=f"test-worker-{uuid.uuid4().hex[:6]}")
+        return ExecutionRunner(
+            checkpointer=self.checkpointer,
+            connections=manager,
+            queue=self.queue,
+            worker_id=f"test-worker-{uuid.uuid4().hex[:6]}",
+        )
 
     async def close(self) -> None:
         for manager in self.managers:
@@ -281,8 +312,7 @@ async def auth_context(email: str) -> Any:
         assert user is not None, email
         member = await session.scalar(select(WorkspaceMember).where(WorkspaceMember.user_id == user.id))
         assert member is not None
-        return AuthContext(user_id=user.id, workspace_id=member.workspace_id, role=Role(member.role),
-                           email=user.email)
+        return AuthContext(user_id=user.id, workspace_id=member.workspace_id, role=Role(member.role), email=user.email)
 
 
 @pytest.fixture

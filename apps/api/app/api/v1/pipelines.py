@@ -63,8 +63,9 @@ async def delete_pipeline(pipeline_id: uuid.UUID, ctx: Auth, session: DB) -> Ok:
 
 
 @router.post("/pipelines/{pipeline_id}/versions", response_model=PipelineDetail, status_code=201)
-async def save_pipeline_version(pipeline_id: uuid.UUID, data: PipelineVersionIn, ctx: Auth,
-                                session: DB) -> PipelineDetail:
+async def save_pipeline_version(
+    pipeline_id: uuid.UUID, data: PipelineVersionIn, ctx: Auth, session: DB
+) -> PipelineDetail:
     return await service.save_version(session, ctx, pipeline_id, data)
 
 

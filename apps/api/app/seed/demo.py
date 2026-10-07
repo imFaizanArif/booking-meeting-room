@@ -111,6 +111,8 @@ async def seed_llm(session: AsyncSession, ws: Workspace) -> dict[str, LLMModel]:
     openai = await _provider(session, ws, "OpenAI", ProviderType.openai, "https://api.openai.com/v1", False)
     anthropic = await _provider(session, ws, "Anthropic", ProviderType.anthropic, None, False)
     ollama = await _provider(session, ws, "Ollama (local)", ProviderType.ollama, "http://localhost:11434", False)
+    gemini = await _provider(session, ws, "Google Gemini", ProviderType.gemini,
+                             "https://generativelanguage.googleapis.com/v1beta", False)
     models = {
         "filter": await _model(session, ws, fake, "fake-filter", "Fake · filter model", context_window=32_000,
                                supports_json_schema=True),
@@ -126,6 +128,12 @@ async def seed_llm(session: AsyncSession, ws: Workspace) -> dict[str, LLMModel]:
             default_parameters={"max_tokens": 16000, "extras": {"anthropic": {"thinking": {"type": "adaptive"}}}}),
         "gpt": await _model(session, ws, openai, "gpt-4.1-mini", "GPT-4.1 mini", context_window=1_000_000,
                             input_price_per_mtok=Decimal("0.4"), output_price_per_mtok=Decimal("1.6")),
+        "gemini_flash": await _model(session, ws, gemini, "gemini-2.5-flash", "Gemini 2.5 Flash",
+                                     context_window=1_048_576, input_price_per_mtok=Decimal("0.30"),
+                                     output_price_per_mtok=Decimal("2.50")),
+        "gemini_pro": await _model(session, ws, gemini, "gemini-2.5-pro", "Gemini 2.5 Pro",
+                                   context_window=1_048_576, input_price_per_mtok=Decimal("1.25"),
+                                   output_price_per_mtok=Decimal("10")),
         "llama": await _model(session, ws, ollama, "llama3.2", "Llama 3.2 (Ollama)", context_window=128_000,
                               supports_json_schema=True),
     }

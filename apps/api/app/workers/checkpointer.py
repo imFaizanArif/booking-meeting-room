@@ -14,11 +14,14 @@ from app.core.config import get_settings
 
 @asynccontextmanager
 async def open_checkpointer(max_size: int = 10) -> AsyncIterator[AsyncPostgresSaver]:
+    settings = get_settings()
+    # Transaction poolers cannot hold prepared statements: disable them there.
+    prepare = None if settings.db_pooler == "transaction" else 0
     pool = AsyncConnectionPool(
-        get_settings().sync_database_url,
+        settings.sync_database_url,
         min_size=1,
         max_size=max_size,
-        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+        kwargs={"autocommit": True, "prepare_threshold": prepare, "row_factory": dict_row},
         open=False,
     )
     await pool.open()

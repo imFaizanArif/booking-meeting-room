@@ -9,10 +9,17 @@ import pytest
 from app.core.enums import ErrorCode
 from app.orchestration.expressions import ExpressionError, check_syntax, evaluate, jsonpath, resolve
 
-JOBS = [{"id": "a", "rate": 85, "skills": ["py"]}, {"id": "b", "rate": 40, "skills": []},
-        {"id": "c", "rate": 120, "skills": ["go"]}, "not-a-dict"]
-NAMES: dict[str, Any] = {"input": {"min": 50, "tags": ["x"]}, "nodes": {"search": {"output": {"jobs": JOBS}}},
-                         "vars": {"rate": "80"}}
+JOBS = [
+    {"id": "a", "rate": 85, "skills": ["py"]},
+    {"id": "b", "rate": 40, "skills": []},
+    {"id": "c", "rate": 120, "skills": ["go"]},
+    "not-a-dict",
+]
+NAMES: dict[str, Any] = {
+    "input": {"min": 50, "tags": ["x"]},
+    "nodes": {"search": {"output": {"jobs": JOBS}}},
+    "vars": {"rate": "80"},
+}
 
 
 @pytest.mark.parametrize(
@@ -74,8 +81,12 @@ def test_power_and_string_limits() -> None:
 
 
 def test_resolve_only_evaluates_prefixed_strings() -> None:
-    template = {"id": "=first(pluck(nodes.search.output.jobs, 'id'))", "literal": "plain = text",
-                "list": ["=input.min", 3], "nested": {"n": "=len(input.tags)"}}
+    template = {
+        "id": "=first(pluck(nodes.search.output.jobs, 'id'))",
+        "literal": "plain = text",
+        "list": ["=input.min", 3],
+        "nested": {"n": "=len(input.tags)"},
+    }
     assert resolve(template, NAMES) == {"id": "a", "literal": "plain = text", "list": [50, 3], "nested": {"n": 1}}
 
 

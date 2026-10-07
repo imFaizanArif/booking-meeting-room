@@ -73,9 +73,7 @@ class TokenBucket:
             if allowed:
                 return
             if not wait or time.monotonic() + wait_ms / 1000 > deadline:
-                raise RateLimited(
-                    "Rate limit exceeded", details={"key": key, "retry_after_ms": wait_ms}
-                )
+                raise RateLimited("Rate limit exceeded", details={"key": key, "retry_after_ms": wait_ms})
             await asyncio.sleep(wait_ms / 1000)
 
 

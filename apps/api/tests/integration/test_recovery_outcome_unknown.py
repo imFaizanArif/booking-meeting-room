@@ -27,15 +27,26 @@ from tests.helpers import approvals, db_execution, decide_as, pending_approval, 
 
 async def _simulate_crash_during_submit(execution_id: object, call_id: object) -> None:
     async with session_scope() as session:
-        await session.execute(sa.update(ToolCall).where(ToolCall.id == call_id).values(
-            status=ToolCallStatus.executing, attempt=1, started_at=utcnow()))
-        await session.execute(sa.update(Execution).where(Execution.id == execution_id).values(
-            status=ExecutionStatus.running, lease_owner="dead-worker",
-            lease_expires_at=utcnow() - timedelta(minutes=1)))
+        await session.execute(
+            sa.update(ToolCall)
+            .where(ToolCall.id == call_id)
+            .values(status=ToolCallStatus.executing, attempt=1, started_at=utcnow())
+        )
+        await session.execute(
+            sa.update(Execution)
+            .where(Execution.id == execution_id)
+            .values(
+                status=ExecutionStatus.running,
+                lease_owner="dead-worker",
+                lease_expires_at=utcnow() - timedelta(minutes=1),
+            )
+        )
 
 
 async def test_executing_call_becomes_outcome_unknown_and_is_not_rerun(
-    operator_ctx: AuthContext, runners: RunnerFactory, fake_queue: FakeQueue,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    fake_queue: FakeQueue,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     assert await runners.new().run(execution_id) == ExecutionStatus.paused_for_review
@@ -68,8 +79,9 @@ async def test_executing_call_becomes_outcome_unknown_and_is_not_rerun(
         else:
             raise AssertionError(f"{action} accepted")
 
-    await decide_as(operator_ctx, review.id, DecisionAction.mark_succeeded,
-                    result={"proposal_id": "prop-confirmed-by-human"})
+    await decide_as(
+        operator_ctx, review.id, DecisionAction.mark_succeeded, result={"proposal_id": "prop-confirmed-by-human"}
+    )
     assert await runners.new().run(execution_id) == ExecutionStatus.completed
 
     [call] = await submit_calls(execution_id)
@@ -78,23 +90,35 @@ async def test_executing_call_becomes_outcome_unknown_and_is_not_rerun(
     assert call.result["structured_content"] == {"proposal_id": "prop-confirmed-by-human"}
     assert effects("jobs") == [], "the destructive call must never be re-executed automatically"
     kinds = {(a.kind, a.status) for a in await approvals(execution_id)}
-    assert kinds == {(ApprovalKind.tool_call, ApprovalStatus.approved),
-                     (ApprovalKind.outcome_unknown, ApprovalStatus.approved)}
+    assert kinds == {
+        (ApprovalKind.tool_call, ApprovalStatus.approved),
+        (ApprovalKind.outcome_unknown, ApprovalStatus.approved),
+    }
     assert "prop-confirmed-by-human" in ((await db_execution(execution_id)).output or {})["proposal"]["text"]
 
 
 async def test_recovery_resets_read_only_calls_and_requeues_orphans(
-    operator_ctx: AuthContext, runners: RunnerFactory, fake_queue: FakeQueue,
+    operator_ctx: AuthContext,
+    runners: RunnerFactory,
+    fake_queue: FakeQueue,
 ) -> None:
     execution_id = await start_demo(operator_ctx)
     assert await runners.new().run(execution_id) == ExecutionStatus.paused_for_review
     async with session_scope() as session:
-        read_only = await session.scalar(sa.select(ToolCall).where(
-            ToolCall.execution_id == execution_id, ToolCall.namespaced_name == "demo_jobs__get_job"))
+        read_only = await session.scalar(
+            sa.select(ToolCall).where(
+                ToolCall.execution_id == execution_id, ToolCall.namespaced_name == "demo_jobs__get_job"
+            )
+        )
         assert read_only is not None
         read_only.status = ToolCallStatus.executing
-        await session.execute(sa.update(Execution).where(Execution.id == execution_id).values(
-            status=ExecutionStatus.running, lease_owner="dead", lease_expires_at=utcnow() - timedelta(seconds=5)))
+        await session.execute(
+            sa.update(Execution)
+            .where(Execution.id == execution_id)
+            .values(
+                status=ExecutionStatus.running, lease_owner="dead", lease_expires_at=utcnow() - timedelta(seconds=5)
+            )
+        )
     fake_queue.clear()
     assert await recover_stale_executions(fake_queue) == 1
     async with session_scope() as session:
@@ -103,6 +127,11 @@ async def test_recovery_resets_read_only_calls_and_requeues_orphans(
 
     # A live lease is left alone.
     async with session_scope() as session:
-        await session.execute(sa.update(Execution).where(Execution.id == execution_id).values(
-            status=ExecutionStatus.running, lease_owner="alive", lease_expires_at=utcnow() + timedelta(minutes=1)))
+        await session.execute(
+            sa.update(Execution)
+            .where(Execution.id == execution_id)
+            .values(
+                status=ExecutionStatus.running, lease_owner="alive", lease_expires_at=utcnow() + timedelta(minutes=1)
+            )
+        )
     assert await recover_stale_executions(fake_queue) == 0

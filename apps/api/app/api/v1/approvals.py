@@ -15,11 +15,17 @@ router = APIRouter(prefix="/approvals", tags=["approvals"])
 
 
 @router.get("", response_model=Page[ApprovalOut])
-async def list_approvals(ctx: Auth, session: DB, status: ApprovalStatus | None = None,
-                         execution_id: uuid.UUID | None = None, limit: int = Query(100, le=500),
-                         offset: int = 0) -> Page[ApprovalOut]:
-    items, total = await service.list_approvals(session, ctx, status=status, execution_id=execution_id,
-                                                limit=limit, offset=offset)
+async def list_approvals(
+    ctx: Auth,
+    session: DB,
+    status: ApprovalStatus | None = None,
+    execution_id: uuid.UUID | None = None,
+    limit: int = Query(100, le=500),
+    offset: int = 0,
+) -> Page[ApprovalOut]:
+    items, total = await service.list_approvals(
+        session, ctx, status=status, execution_id=execution_id, limit=limit, offset=offset
+    )
     return Page(items=items, total=total, limit=limit, offset=offset)
 
 
@@ -30,7 +36,16 @@ async def get_approval(approval_id: uuid.UUID, ctx: Auth, session: DB) -> Approv
 
 @router.post("/{approval_id}/decision", response_model=ApprovalDetail)
 async def decide_approval(approval_id: uuid.UUID, data: DecisionIn, ctx: Auth, session: DB) -> ApprovalDetail:
-    await hitl.decide(session, ctx, approval_id, action=data.action, edited_arguments=data.edited_arguments,
-                      edited_data=data.edited_data, reason=data.reason, feedback=data.feedback,
-                      result=data.result, confirm=data.confirm)
+    await hitl.decide(
+        session,
+        ctx,
+        approval_id,
+        action=data.action,
+        edited_arguments=data.edited_arguments,
+        edited_data=data.edited_data,
+        reason=data.reason,
+        feedback=data.feedback,
+        result=data.result,
+        confirm=data.confirm,
+    )
     return await service.approval_detail(session, ctx, approval_id)

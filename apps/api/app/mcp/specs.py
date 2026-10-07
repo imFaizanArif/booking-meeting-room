@@ -16,8 +16,14 @@ from app.services.context import WORKER_ACTOR, Actor
 
 def compute_config_hash(server: MCPServer) -> str:
     return server_config_hash(
-        server.transport.value, server.command, server.args or [], server.cwd, server.url,
-        server.env_refs or {}, server.header_refs or {}, server.isolation.value,
+        server.transport.value,
+        server.command,
+        server.args or [],
+        server.cwd,
+        server.url,
+        server.env_refs or {},
+        server.header_refs or {},
+        server.isolation.value,
     )
 
 
@@ -26,9 +32,15 @@ async def _resolve_refs(session: AsyncSession, server: MCPServer, refs: dict[str
     values: dict[str, str] = {}
     for name, ref in (refs or {}).items():
         values[name] = await manager.get(session, server.workspace_id, str(ref))
-        await audit(session, event_type=AuditEventType.secret_accessed, actor=actor,
-                    workspace_id=server.workspace_id, entity_type="secret", entity_id=str(ref),
-                    payload={"purpose": f"mcp_server:{server.slug}", "field": name})
+        await audit(
+            session,
+            event_type=AuditEventType.secret_accessed,
+            actor=actor,
+            workspace_id=server.workspace_id,
+            entity_type="secret",
+            entity_id=str(ref),
+            payload={"purpose": f"mcp_server:{server.slug}", "field": name},
+        )
     return values
 
 

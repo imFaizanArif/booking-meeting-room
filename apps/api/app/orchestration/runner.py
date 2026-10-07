@@ -54,8 +54,13 @@ from app.tools.router import ToolRouter
 from app.workers.queue import Job, JobQueue, resume_job_id
 
 log = get_logger(__name__)
-_PICKUP = (ExecutionStatus.queued, ExecutionStatus.resuming, ExecutionStatus.running,
-           ExecutionStatus.waiting_for_tool, ExecutionStatus.waiting_for_timer)
+_PICKUP = (
+    ExecutionStatus.queued,
+    ExecutionStatus.resuming,
+    ExecutionStatus.running,
+    ExecutionStatus.waiting_for_tool,
+    ExecutionStatus.waiting_for_timer,
+)
 _MAX_PASSES = 20
 
 
@@ -95,8 +100,11 @@ class ExecutionRunner:
                 .where(
                     Execution.id == execution_id,
                     Execution.status.in_(_PICKUP),
-                    or_(Execution.lease_expires_at.is_(None), Execution.lease_expires_at < now,
-                        Execution.lease_owner == self.worker_id),
+                    or_(
+                        Execution.lease_expires_at.is_(None),
+                        Execution.lease_expires_at < now,
+                        Execution.lease_owner == self.worker_id,
+                    ),
                 )
                 .values(lease_owner=self.worker_id, lease_expires_at=now + timedelta(seconds=self.lease_s))
                 .returning(Execution)
@@ -127,8 +135,11 @@ class ExecutionRunner:
         if execution is None:
             await self._yield_if_busy(execution_id)
             return None
-        bind_context(execution_id=execution_id, workspace_id=execution.workspace_id,
-                     pipeline_version_id=execution.pipeline_version_id)
+        bind_context(
+            execution_id=execution_id,
+            workspace_id=execution.workspace_id,
+            pipeline_version_id=execution.pipeline_version_id,
+        )
         heartbeat = asyncio.create_task(self._heartbeat(execution_id))
         try:
             return await self._drive(execution, operator_resume=operator_resume)
@@ -146,19 +157,36 @@ class ExecutionRunner:
             row = await session.get(Execution, execution_id)
         if row is None or row.status not in _PICKUP or self.queue is None:
             return
-        await self.queue.enqueue(Job.resume_execution, str(execution_id), job_id=resume_job_id(execution_id),
-                                 defer_until=utcnow() + timedelta(seconds=3))
+        await self.queue.enqueue(
+            Job.resume_execution,
+            str(execution_id),
+            job_id=resume_job_id(execution_id),
+            defer_until=utcnow() + timedelta(seconds=3),
+        )
 
     def _runtime(self, execution: Execution, snapshot: ConfigSnapshot) -> RuntimeContext:
         settings = get_settings()
         return RuntimeContext(
-            execution_id=execution.id, workspace_id=execution.workspace_id, snapshot=snapshot,
-            llm=LLMService(execution_id=execution.id, workspace_id=execution.workspace_id, snapshot=snapshot,
-                           bucket=self.bucket, concurrency=self.concurrency,
-                           timeout_s=settings.llm_default_timeout_s),
-            tools=ToolRouter(execution_id=execution.id, workspace_id=execution.workspace_id, snapshot=snapshot,
-                             connections=self.connections, queue=self.queue),
-            notifications=self.notifications, queue=self.queue,
+            execution_id=execution.id,
+            workspace_id=execution.workspace_id,
+            snapshot=snapshot,
+            llm=LLMService(
+                execution_id=execution.id,
+                workspace_id=execution.workspace_id,
+                snapshot=snapshot,
+                bucket=self.bucket,
+                concurrency=self.concurrency,
+                timeout_s=settings.llm_default_timeout_s,
+            ),
+            tools=ToolRouter(
+                execution_id=execution.id,
+                workspace_id=execution.workspace_id,
+                snapshot=snapshot,
+                connections=self.connections,
+                queue=self.queue,
+            ),
+            notifications=self.notifications,
+            queue=self.queue,
         )
 
     async def _drive(self, execution: Execution, *, operator_resume: bool) -> ExecutionStatus:
@@ -168,18 +196,25 @@ class ExecutionRunner:
             await self._cancel_open_calls(execution_id)
             if execution.status == ExecutionStatus.waiting_for_timer:
                 await set_execution_status(execution_id, workspace_id, ExecutionStatus.resuming, publish=False)
-            await set_execution_status(execution_id, workspace_id, ExecutionStatus.cancelled,
-                                       error={"code": "EXECUTION_CANCELLED", "message": "Cancelled by an operator"})
+            await set_execution_status(
+                execution_id,
+                workspace_id,
+                ExecutionStatus.cancelled,
+                error={"code": "EXECUTION_CANCELLED", "message": "Cancelled by an operator"},
+            )
             return ExecutionStatus.cancelled
         if execution.status in (ExecutionStatus.waiting_for_timer,):
             await set_execution_status(execution_id, workspace_id, ExecutionStatus.resuming)
         if execution.status != ExecutionStatus.running:
-            await set_execution_status(execution_id, workspace_id, ExecutionStatus.running,
-                                       event_payload={"worker": self.worker_id})
+            await set_execution_status(
+                execution_id, workspace_id, ExecutionStatus.running, event_payload={"worker": self.worker_id}
+            )
         graph = compile_pipeline(snapshot.graph, self.checkpointer)
         rt = self._runtime(execution, snapshot)
-        config: dict[str, Any] = {"configurable": {"thread_id": execution.thread_id, RUNTIME_KEY: rt},
-                                  "recursion_limit": 500}
+        config: dict[str, Any] = {
+            "configurable": {"thread_id": execution.thread_id, RUNTIME_KEY: rt},
+            "recursion_limit": 500,
+        }
         try:
             for _ in range(_MAX_PASSES):
                 payload = await self._invocation(graph, config, execution, operator_resume)
@@ -193,8 +228,12 @@ class ExecutionRunner:
             raise AppError("Execution did not settle after repeated resumes")
         except ExecutionCancelled as exc:
             await self._cancel_open_calls(execution_id)
-            await set_execution_status(execution_id, workspace_id, ExecutionStatus.cancelled,
-                                       error={"code": exc.code.value, "message": exc.message})
+            await set_execution_status(
+                execution_id,
+                workspace_id,
+                ExecutionStatus.cancelled,
+                error={"code": exc.code.value, "message": exc.message},
+            )
             return ExecutionStatus.cancelled
         except Exception as exc:  # noqa: BLE001 - every failure is recorded on the execution
             err = error_dict(exc)
@@ -202,8 +241,7 @@ class ExecutionRunner:
             await set_execution_status(execution_id, workspace_id, ExecutionStatus.failed, error=err)
             return ExecutionStatus.failed
 
-    async def _invocation(self, graph: Any, config: dict[str, Any], execution: Execution,
-                          operator_resume: bool) -> Any:
+    async def _invocation(self, graph: Any, config: dict[str, Any], execution: Execution, operator_resume: bool) -> Any:
         state = await graph.aget_state(config)
         if state.created_at is None:
             return {"input": execution.input or {}, "outputs": {}, "node_status": {}, "agents": {}}
@@ -211,7 +249,10 @@ class ExecutionRunner:
         for intr in state.interrupts:
             value = intr.value if isinstance(intr.value, dict) else {}
             if await self._resolvable(value, execution.id, operator_resume):
-                resume[intr.id] = {"resumed_at": utcnow().isoformat(), **{k: value.get(k) for k in ("kind", "approval_id")}}
+                resume[intr.id] = {
+                    "resumed_at": utcnow().isoformat(),
+                    **{k: value.get(k) for k in ("kind", "approval_id")},
+                }
         if resume:
             await self._mark_consumed(execution.id)
             return Command(resume=resume)
@@ -227,8 +268,11 @@ class ExecutionRunner:
             return status is not None and status != ApprovalStatus.pending
         if kind == InterruptKind.timer.value:
             async with session_scope() as session:
-                timer = await session.scalar(select(DurableTimer).where(
-                    DurableTimer.execution_id == execution_id, DurableTimer.node_id == value.get("node_id")))
+                timer = await session.scalar(
+                    select(DurableTimer).where(
+                        DurableTimer.execution_id == execution_id, DurableTimer.node_id == value.get("node_id")
+                    )
+                )
                 if timer is not None and timer.wake_at <= utcnow():
                     timer.fired_at = timer.fired_at or utcnow()
                     return True
@@ -241,24 +285,32 @@ class ExecutionRunner:
         async with session_scope() as session:
             await session.execute(
                 sa.update(Approval)
-                .where(Approval.execution_id == execution_id, Approval.status != ApprovalStatus.pending,
-                       Approval.resumed.is_(False))
+                .where(
+                    Approval.execution_id == execution_id,
+                    Approval.status != ApprovalStatus.pending,
+                    Approval.resumed.is_(False),
+                )
                 .values(resumed=True)
             )
 
-    async def _stream(self, graph: Any, payload: Any, config: dict[str, Any],
-                      execution_id: uuid.UUID) -> ExecutionStatus | None:
+    async def _stream(
+        self, graph: Any, payload: Any, config: dict[str, Any], execution_id: uuid.UUID
+    ) -> ExecutionStatus | None:
         async for _ in graph.astream(payload, config, stream_mode="checkpoints"):
             async with session_scope() as session:
-                flags = (await session.execute(
-                    select(Execution.cancel_requested, Execution.pause_requested, Execution.workspace_id)
-                    .where(Execution.id == execution_id)
-                )).one()
+                flags = (
+                    await session.execute(
+                        select(Execution.cancel_requested, Execution.pause_requested, Execution.workspace_id).where(
+                            Execution.id == execution_id
+                        )
+                    )
+                ).one()
             if flags.cancel_requested:
                 raise ExecutionCancelled("Execution was cancelled by an operator")
             if flags.pause_requested:
-                await set_execution_status(execution_id, flags.workspace_id, ExecutionStatus.paused,
-                                           event_payload={"reason": "operator"})
+                await set_execution_status(
+                    execution_id, flags.workspace_id, ExecutionStatus.paused, event_payload={"reason": "operator"}
+                )
                 return ExecutionStatus.paused
         return None
 
@@ -285,8 +337,7 @@ class ExecutionRunner:
         else:
             raise AppError("Execution stopped without a reason", details={"next": list(state.next)})
         pending = [i.value for i in state.interrupts if isinstance(i.value, dict)]
-        await set_execution_status(execution_id, workspace_id, status,
-                                   event_payload={"waiting_on": pending[:10]})
+        await set_execution_status(execution_id, workspace_id, status, event_payload={"waiting_on": pending[:10]})
         return status
 
     @staticmethod
@@ -303,9 +354,12 @@ class ExecutionRunner:
         async with session_scope() as session:
             await session.execute(
                 sa.update(ToolCall)
-                .where(ToolCall.execution_id == execution_id,
-                       ToolCall.status.in_([ToolCallStatus.pending, ToolCallStatus.awaiting_approval,
-                                            ToolCallStatus.approved]))
+                .where(
+                    ToolCall.execution_id == execution_id,
+                    ToolCall.status.in_(
+                        [ToolCallStatus.pending, ToolCallStatus.awaiting_approval, ToolCallStatus.approved]
+                    ),
+                )
                 .values(status=ToolCallStatus.cancelled)
             )
             await session.execute(
@@ -313,6 +367,13 @@ class ExecutionRunner:
                 .where(Approval.execution_id == execution_id, Approval.status == ApprovalStatus.pending)
                 .values(status=ApprovalStatus.expired, reason="Execution cancelled")
             )
-            await audit(session, event_type=AuditEventType.execution_control, actor=WORKER_ACTOR,
-                        workspace_id=None, entity_type="execution", entity_id=execution_id,
-                        execution_id=execution_id, payload={"action": "cancelled"})
+            await audit(
+                session,
+                event_type=AuditEventType.execution_control,
+                actor=WORKER_ACTOR,
+                workspace_id=None,
+                entity_type="execution",
+                entity_id=execution_id,
+                execution_id=execution_id,
+                payload={"action": "cancelled"},
+            )

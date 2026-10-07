@@ -37,9 +37,7 @@ class Execution(IdMixin, TimestampMixin, WorkspaceScoped, Base):
     trigger: Mapped[TriggerKind] = mapped_column(enum_col(TriggerKind, name="trigger_kind"))
     triggered_by: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("users.id", ondelete="SET NULL"))
     schedule_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("schedules.id", ondelete="SET NULL"))
-    restarted_from_id: Mapped[uuid.UUID | None] = mapped_column(
-        sa.ForeignKey("executions.id", ondelete="SET NULL")
-    )
+    restarted_from_id: Mapped[uuid.UUID | None] = mapped_column(sa.ForeignKey("executions.id", ondelete="SET NULL"))
     status: Mapped[ExecutionStatus] = mapped_column(enum_col(ExecutionStatus, name="execution_status"))
     input: Mapped[dict[str, Any]] = mapped_column(default=dict)
     output: Mapped[dict[str, Any] | None]
@@ -111,6 +109,7 @@ class ToolCall(IdMixin, TimestampMixin, WorkspaceScoped, Base):
     idempotency_key: Mapped[str] = mapped_column(sa.String(200))
     status: Mapped[ToolCallStatus] = mapped_column(enum_col(ToolCallStatus, name="tool_call_status"))
     policy_decision: Mapped[dict[str, Any] | None]
+    # Safe to re-run without a human: read-only and not marked destructive (SnapshotTool.safe_to_rerun).
     is_read_only: Mapped[bool] = mapped_column(default=False)
     result: Mapped[dict[str, Any] | None]
     error: Mapped[dict[str, Any] | None]

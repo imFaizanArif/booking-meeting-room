@@ -56,8 +56,14 @@ class SecretMeta:
 
 class SecretManager(Protocol):
     async def put(
-        self, session: AsyncSession, workspace_id: uuid.UUID, name: str, value: str, *,
-        description: str | None = None, managed: bool = False,
+        self,
+        session: AsyncSession,
+        workspace_id: uuid.UUID,
+        name: str,
+        value: str,
+        *,
+        description: str | None = None,
+        managed: bool = False,
     ) -> SecretMeta: ...
     async def get(self, session: AsyncSession, workspace_id: uuid.UUID, ref: str) -> str: ...
     async def rotate(self, session: AsyncSession, workspace_id: uuid.UUID, ref: str, value: str) -> SecretMeta: ...
@@ -92,13 +98,17 @@ class LocalEnvelopeSecretManager:
         return row
 
     async def put(
-        self, session: AsyncSession, workspace_id: uuid.UUID, name: str, value: str, *,
-        description: str | None = None, managed: bool = False,
+        self,
+        session: AsyncSession,
+        workspace_id: uuid.UUID,
+        name: str,
+        value: str,
+        *,
+        description: str | None = None,
+        managed: bool = False,
     ) -> SecretMeta:
         ciphertext, nonce, wrapped, key_nonce = self._seal(value)
-        existing = await session.scalar(
-            select(Secret).where(Secret.workspace_id == workspace_id, Secret.name == name)
-        )
+        existing = await session.scalar(select(Secret).where(Secret.workspace_id == workspace_id, Secret.name == name))
         if existing is not None:
             existing.ciphertext, existing.nonce = ciphertext, nonce
             existing.wrapped_data_key, existing.key_nonce = wrapped, key_nonce
@@ -110,9 +120,15 @@ class LocalEnvelopeSecretManager:
             row = existing
         else:
             row = Secret(
-                workspace_id=workspace_id, name=name, description=description,
-                ciphertext=ciphertext, nonce=nonce, wrapped_data_key=wrapped,
-                key_nonce=key_nonce, hint=hint_for(value), managed=managed,
+                workspace_id=workspace_id,
+                name=name,
+                description=description,
+                ciphertext=ciphertext,
+                nonce=nonce,
+                wrapped_data_key=wrapped,
+                key_nonce=key_nonce,
+                hint=hint_for(value),
+                managed=managed,
             )
             session.add(row)
         await session.flush()

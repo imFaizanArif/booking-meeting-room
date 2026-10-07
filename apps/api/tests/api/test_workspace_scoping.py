@@ -37,15 +37,20 @@ async def test_other_workspace_sees_404(login: Login, operator_ctx: AuthContext,
     email, password = await _outsider()
     outsider = await login_client(email, password)
     try:
-        for path in (f"/pipelines/{pipeline_id}", f"/executions/{execution_id}",
-                     f"/executions/{execution_id}/events", f"/approvals/{approval.id}"):
+        for path in (
+            f"/pipelines/{pipeline_id}",
+            f"/executions/{execution_id}",
+            f"/executions/{execution_id}/events",
+            f"/approvals/{approval.id}",
+        ):
             assert_envelope(await outsider.get(f"{V1}{path}"), 404, "NOT_FOUND")
-        assert_envelope(await outsider.post(f"{V1}/approvals/{approval.id}/decision", json={"action": "approve"}),
-                        404, "NOT_FOUND")
-        assert_envelope(await outsider.post(f"{V1}/pipelines/{pipeline_id}/run", json={"input": {}}),
-                        404, "NOT_FOUND")
-        assert_envelope(await outsider.post(f"{V1}/executions/{execution_id}/control", json={"action": "cancel"}),
-                        404, "NOT_FOUND")
+        assert_envelope(
+            await outsider.post(f"{V1}/approvals/{approval.id}/decision", json={"action": "approve"}), 404, "NOT_FOUND"
+        )
+        assert_envelope(await outsider.post(f"{V1}/pipelines/{pipeline_id}/run", json={"input": {}}), 404, "NOT_FOUND")
+        assert_envelope(
+            await outsider.post(f"{V1}/executions/{execution_id}/control", json={"action": "cancel"}), 404, "NOT_FOUND"
+        )
         assert (await outsider.get(f"{V1}/pipelines")).json() == []
         assert (await outsider.get(f"{V1}/approvals")).json()["total"] == 0
         assert (await outsider.get(f"{V1}/executions")).json()["total"] == 0

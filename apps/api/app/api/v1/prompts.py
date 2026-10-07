@@ -37,8 +37,9 @@ async def get_prompt(template_id: uuid.UUID, ctx: Auth, session: DB) -> PromptTe
 
 
 @router.post("/prompts/{template_id}/versions", response_model=PromptTemplateDetail, status_code=201)
-async def add_prompt_version(template_id: uuid.UUID, data: PromptVersionIn, ctx: Auth,
-                             session: DB) -> PromptTemplateDetail:
+async def add_prompt_version(
+    template_id: uuid.UUID, data: PromptVersionIn, ctx: Auth, session: DB
+) -> PromptTemplateDetail:
     return await service.add_version(session, ctx, template_id, data)
 
 

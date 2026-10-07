@@ -42,8 +42,12 @@ class Decision:
     code: ErrorCode | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"decision": self.decision.value, "reasons": self.reasons, "risk_level": self.risk_level.value,
-                "code": self.code.value if self.code else None}
+        return {
+            "decision": self.decision.value,
+            "reasons": self.reasons,
+            "risk_level": self.risk_level.value,
+            "code": self.code.value if self.code else None,
+        }
 
 
 class Policy(Protocol):
@@ -57,8 +61,9 @@ class ToolExists:
 
     def evaluate(self, name: str, tool: SnapshotTool | None, ctx: PolicyContext) -> Verdict | None:
         if tool is None:
-            return Verdict(PolicyDecision.deny, f"Tool {name} is not available in this execution",
-                           ErrorCode.tool_not_enabled)
+            return Verdict(
+                PolicyDecision.deny, f"Tool {name} is not available in this execution", ErrorCode.tool_not_enabled
+            )
         return None
 
 
@@ -76,8 +81,9 @@ class InAllowList:
 
     def evaluate(self, name: str, tool: SnapshotTool | None, ctx: PolicyContext) -> Verdict | None:
         if ctx.allowlist is not None and name not in ctx.allowlist:
-            return Verdict(PolicyDecision.deny, f"Tool {name} is not in this node's allow-list",
-                           ErrorCode.tool_not_allowed)
+            return Verdict(
+                PolicyDecision.deny, f"Tool {name} is not in this node's allow-list", ErrorCode.tool_not_allowed
+            )
         return None
 
 
@@ -89,8 +95,7 @@ class CallerPermission:
     def evaluate(self, name: str, tool: SnapshotTool | None, ctx: PolicyContext) -> Verdict | None:
         role = ctx.started_by_role
         if role is not None and ROLE_RANK[role] < ROLE_RANK[Role.operator]:
-            return Verdict(PolicyDecision.deny, "Executions started by a viewer cannot call tools",
-                           ErrorCode.forbidden)
+            return Verdict(PolicyDecision.deny, "Executions started by a viewer cannot call tools", ErrorCode.forbidden)
         return None
 
 
@@ -121,7 +126,12 @@ class ApprovalRequired:
 
 
 DEFAULT_POLICIES: tuple[Policy, ...] = (
-    ToolExists(), ToolEnabled(), InAllowList(), CallerPermission(), SchemaUnchanged(), ApprovalRequired(),
+    ToolExists(),
+    ToolEnabled(),
+    InAllowList(),
+    CallerPermission(),
+    SchemaUnchanged(),
+    ApprovalRequired(),
 )
 
 

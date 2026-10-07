@@ -29,8 +29,11 @@ class NodeExecutor(Protocol):
 def error_dict(exc: BaseException) -> dict[str, Any]:
     if isinstance(exc, AppError):
         return {"code": exc.code.value, "message": exc.message, "details": exc.details, "retryable": exc.retryable}
-    return {"code": ErrorCode.internal_error.value, "message": f"{exc.__class__.__name__}: {exc}"[:1000],
-            "retryable": False}
+    return {
+        "code": ErrorCode.internal_error.value,
+        "message": f"{exc.__class__.__name__}: {exc}"[:1000],
+        "retryable": False,
+    }
 
 
 def edge_active(edge: PipelineEdge, graph: PipelineGraph, state: GraphState) -> bool:
@@ -76,8 +79,12 @@ async def run_with_policy(
         except Exception as exc:
             err = error_dict(exc)
             retryable = bool(getattr(exc, "retryable", False))
-            if policy.mode == ErrorMode.retry and retryable and attempt < policy.max_attempts \
-                    and await rt.consume_retry_budget():
+            if (
+                policy.mode == ErrorMode.retry
+                and retryable
+                and attempt < policy.max_attempts
+                and await rt.consume_retry_budget()
+            ):
                 delay = policy.backoff_seconds * (2 ** (attempt - 1)) + random.uniform(0, policy.backoff_seconds / 2)
                 await rt.node_retrying(node.id, attempt, err, delay)
                 await asyncio.sleep(delay)
@@ -87,8 +94,15 @@ async def run_with_policy(
                 return FAILED_HANDLED, {"error": err}, err
             if outcome == ErrorMode.pause.value:
                 await rt.node_finished(node.id, node.type, node.name, NodeStatus.failed, error=err)
-                interrupt({"kind": InterruptKind.operator_pause.value, "reason": "node_failed",
-                           "node_id": node.id, "round": pause_round, "error": err})
+                interrupt(
+                    {
+                        "kind": InterruptKind.operator_pause.value,
+                        "reason": "node_failed",
+                        "node_id": node.id,
+                        "round": pause_round,
+                        "error": err,
+                    }
+                )
                 pause_round += 1
                 attempt = 0
                 continue
@@ -113,8 +127,7 @@ async def run_mapped(
     if items is None:
         items = []
     if not isinstance(items, list):
-        raise AppError(f"map.over must evaluate to a list, got {type(items).__name__}",
-                       code=ErrorCode.expression_error)
+        raise AppError(f"map.over must evaluate to a list, got {type(items).__name__}", code=ErrorCode.expression_error)
     semaphore = asyncio.Semaphore(node.map.concurrency)
 
     async def one(index: int, item: Any) -> Any:

@@ -9,8 +9,18 @@ from app.core.errors import IllegalTransition
 EXECUTION_TRANSITIONS: dict[E, frozenset[E]] = {
     E.created: frozenset({E.queued, E.cancelled}),
     E.queued: frozenset({E.running, E.cancelled, E.failed}),
-    E.running: frozenset({E.waiting_for_tool, E.waiting_for_timer, E.paused_for_review, E.paused,
-                          E.completed, E.failed, E.cancelled, E.queued}),
+    E.running: frozenset(
+        {
+            E.waiting_for_tool,
+            E.waiting_for_timer,
+            E.paused_for_review,
+            E.paused,
+            E.completed,
+            E.failed,
+            E.cancelled,
+            E.queued,
+        }
+    ),
     E.waiting_for_tool: frozenset({E.running, E.failed, E.cancelled, E.queued}),
     E.waiting_for_timer: frozenset({E.resuming, E.cancelled}),
     E.paused_for_review: frozenset({E.resuming, E.cancelled}),

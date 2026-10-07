@@ -58,7 +58,8 @@ def fit_messages(
     pointers = pointers or {}
     out: list[Message] = [
         truncate_tool_result(m, budget.max_tool_result_chars, pointers.get(m.tool_call_id))
-        if isinstance(m, ToolResultMessage) else m
+        if isinstance(m, ToolResultMessage)
+        else m
         for m in messages
     ]
     tool_tokens = sum(estimate_tokens(json.dumps(t.model_dump())) for t in tools)
@@ -73,9 +74,11 @@ def fit_messages(
         msg = out[i]
         assert isinstance(msg, ToolResultMessage)
         pointer = pointers.get(msg.tool_call_id)
-        out[i] = msg.model_copy(update={
-            "content": f"[older result omitted to fit the context window{'; stored as ' + pointer if pointer else ''}]"
-        })
+        out[i] = msg.model_copy(
+            update={
+                "content": f"[older result omitted to fit the context window{'; stored as ' + pointer if pointer else ''}]"
+            }
+        )
         if total() <= budget.max_input_tokens:
             return out
     return out

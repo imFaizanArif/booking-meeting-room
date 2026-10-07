@@ -28,29 +28,38 @@ from app.llm.types import (
     UserMessage,
 )
 
-TOOL = ToolDefinition(name="demo_jobs__get_job", description="d" * 2000,
-                      input_schema={"type": "object", "properties": {"job_id": {"type": "string"}},
-                                    "required": ["job_id"]})
+TOOL = ToolDefinition(
+    name="demo_jobs__get_job",
+    description="d" * 2000,
+    input_schema={"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]},
+)
 HISTORY = [
     SystemMessage(content="Be brief."),
     UserMessage(content="Read job-101"),
-    AssistantMessage(content=None, tool_calls=[ToolCallRequest(id="call_1", name=TOOL.name,
-                                                               arguments={"job_id": "job-101"})],
-                     provider_state={"provider": "anthropic", "content": [{"type": "thinking"}]}),
+    AssistantMessage(
+        content=None,
+        tool_calls=[ToolCallRequest(id="call_1", name=TOOL.name, arguments={"job_id": "job-101"})],
+        provider_state={"provider": "anthropic", "content": [{"type": "thinking"}]},
+    ),
     ToolResultMessage(tool_call_id="call_1", name=TOOL.name, content='{"id": "job-101"}'),
 ]
 Handler = Callable[[httpx.Request], httpx.Response]
 
 
 def _openai(handler: Handler, **config: Any) -> OpenAIAdapter:
-    cfg = ProviderConfig(provider_type="openai", base_url=config.get("base_url"), api_key=config.get("api_key"),
-                         metadata=config.get("metadata", {}))
+    cfg = ProviderConfig(
+        provider_type="openai",
+        base_url=config.get("base_url"),
+        api_key=config.get("api_key"),
+        metadata=config.get("metadata", {}),
+    )
     return OpenAIAdapter(cfg, transport=httpx.MockTransport(handler))
 
 
 def _ollama(handler: Handler) -> OllamaAdapter:
-    return OllamaAdapter(ProviderConfig(provider_type="ollama", base_url="http://ollama:11434/"),
-                         transport=httpx.MockTransport(handler))
+    return OllamaAdapter(
+        ProviderConfig(provider_type="ollama", base_url="http://ollama:11434/"), transport=httpx.MockTransport(handler)
+    )
 
 
 def _capture(response: dict[str, Any], seen: dict[str, Any]) -> Handler:
@@ -64,10 +73,24 @@ def _capture(response: dict[str, Any], seen: dict[str, Any]) -> Handler:
 
 
 OPENAI_TOOL_RESPONSE = {
-    "model": "gpt-4.1-mini-2026", "usage": {"prompt_tokens": 30, "completion_tokens": 7},
-    "choices": [{"finish_reason": "tool_calls", "message": {"role": "assistant", "content": None, "tool_calls": [
-        {"id": "call_2", "type": "function", "function": {"name": TOOL.name, "arguments": '{"job_id": "job-102"}'}},
-    ]}}],
+    "model": "gpt-4.1-mini-2026",
+    "usage": {"prompt_tokens": 30, "completion_tokens": 7},
+    "choices": [
+        {
+            "finish_reason": "tool_calls",
+            "message": {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": TOOL.name, "arguments": '{"job_id": "job-102"}'},
+                    },
+                ],
+            },
+        }
+    ],
 }
 
 
@@ -75,11 +98,18 @@ async def test_openai_request_translation_and_response() -> None:
     seen: dict[str, Any] = {}
     adapter = _openai(_capture(OPENAI_TOOL_RESPONSE, seen), api_key="sk-abc", metadata={"organization": "org-1"})
     schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}}
-    response = await adapter.generate(LLMRequest(
-        model="gpt-4.1-mini", messages=HISTORY, tools=[TOOL], tool_choice=ToolChoice.required, temperature=0.2,
-        max_tokens=256, response_format=ResponseFormat(name="verdict", json_schema=schema),
-        extras={"openai": {"seed": 7}, "anthropic": {"thinking": {}}},
-    ))
+    response = await adapter.generate(
+        LLMRequest(
+            model="gpt-4.1-mini",
+            messages=HISTORY,
+            tools=[TOOL],
+            tool_choice=ToolChoice.required,
+            temperature=0.2,
+            max_tokens=256,
+            response_format=ResponseFormat(name="verdict", json_schema=schema),
+            extras={"openai": {"seed": 7}, "anthropic": {"thinking": {}}},
+        )
+    )
     assert seen["url"] == "https://api.openai.com/v1/chat/completions"
     assert seen["headers"]["authorization"] == "Bearer sk-abc"
     assert seen["headers"]["openai-organization"] == "org-1"
@@ -87,21 +117,36 @@ async def test_openai_request_translation_and_response() -> None:
     assert body["messages"] == [
         {"role": "system", "content": "Be brief."},
         {"role": "user", "content": "Read job-101"},
-        {"role": "assistant", "content": None, "tool_calls": [
-            {"id": "call_1", "type": "function",
-             "function": {"name": TOOL.name, "arguments": json.dumps({"job_id": "job-101"})}}]},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": TOOL.name, "arguments": json.dumps({"job_id": "job-101"})},
+                }
+            ],
+        },
         {"role": "tool", "tool_call_id": "call_1", "content": '{"id": "job-101"}'},
     ]
-    assert body["tools"] == [{"type": "function", "function": {
-        "name": TOOL.name, "description": "d" * 1024, "parameters": TOOL.input_schema}}]
+    assert body["tools"] == [
+        {
+            "type": "function",
+            "function": {"name": TOOL.name, "description": "d" * 1024, "parameters": TOOL.input_schema},
+        }
+    ]
     assert body["tool_choice"] == "required"
     assert (body["temperature"], body["max_completion_tokens"], body["seed"]) == (0.2, 256, 7)
-    assert body["response_format"] == {"type": "json_schema", "json_schema": {
-        "name": "verdict", "schema": schema, "strict": False}}
+    assert body["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "verdict", "schema": schema, "strict": False},
+    }
     assert "thinking" not in json.dumps(body)
 
-    assert response.message.tool_calls == [ToolCallRequest(id="call_2", name=TOOL.name,
-                                                           arguments={"job_id": "job-102"})]
+    assert response.message.tool_calls == [
+        ToolCallRequest(id="call_2", name=TOOL.name, arguments={"job_id": "job-102"})
+    ]
     assert response.stop_reason == StopReason.tool_use
     assert response.usage == Usage(input_tokens=30, output_tokens=7)
     assert response.model == "gpt-4.1-mini-2026"
@@ -134,8 +179,16 @@ def test_parse_arguments_edge_cases() -> None:
         (403, {"error": {"message": "Forbidden"}}, errors.AuthFailed),
         (408, {"error": {"message": "timeout"}}, errors.TimeoutError_),
         (413, {"error": {"message": "too big"}}, errors.ContextTooLong),
-        (400, {"error": {"message": "This model's maximum context length is 8192 tokens",
-                         "code": "context_length_exceeded"}}, errors.ContextTooLong),
+        (
+            400,
+            {
+                "error": {
+                    "message": "This model's maximum context length is 8192 tokens",
+                    "code": "context_length_exceeded",
+                }
+            },
+            errors.ContextTooLong,
+        ),
         (400, {"error": {"message": "Rejected by content_filter"}}, errors.ContentFiltered),
         (400, {"error": {"message": "Unknown parameter"}}, errors.InvalidRequest),
         (404, {"error": {"message": "model not found"}}, errors.InvalidRequest),
@@ -152,8 +205,9 @@ async def test_openai_error_mapping(status: int, body: Any, expected: type[error
     with pytest.raises(expected) as info:
         await _openai(handler).generate(LLMRequest(model="m", messages=[UserMessage(content="hi")]))
     assert info.value.details["provider"] == "openai"
-    assert info.value.retryable is (expected in (errors.RateLimitedError, errors.TimeoutError_,
-                                                 errors.ProviderUnavailable))
+    assert info.value.retryable is (
+        expected in (errors.RateLimitedError, errors.TimeoutError_, errors.ProviderUnavailable)
+    )
 
 
 async def test_transport_failures_and_empty_choices() -> None:
@@ -176,19 +230,40 @@ async def test_transport_failures_and_empty_choices() -> None:
 
 async def test_ollama_translation_and_synthesised_ids() -> None:
     seen: dict[str, Any] = {}
-    reply = {"model": "llama3.2", "done_reason": "stop", "prompt_eval_count": 40, "eval_count": 9,
-             "message": {"role": "assistant", "content": "", "tool_calls": [
-                 {"function": {"name": TOOL.name, "arguments": {"job_id": "job-103"}}},
-                 {"function": {"name": TOOL.name, "arguments": '{"job_id": "job-104"}'}}]}}
+    reply = {
+        "model": "llama3.2",
+        "done_reason": "stop",
+        "prompt_eval_count": 40,
+        "eval_count": 9,
+        "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {"function": {"name": TOOL.name, "arguments": {"job_id": "job-103"}}},
+                {"function": {"name": TOOL.name, "arguments": '{"job_id": "job-104"}'}},
+            ],
+        },
+    }
     schema = {"type": "object"}
-    response = await _ollama(_capture(reply, seen)).generate(LLMRequest(
-        model="llama3.2", messages=HISTORY, tools=[TOOL], temperature=0.1, max_tokens=64,
-        response_format=ResponseFormat(json_schema=schema), extras={"ollama": {"keep_alive": "5m"}}))
+    response = await _ollama(_capture(reply, seen)).generate(
+        LLMRequest(
+            model="llama3.2",
+            messages=HISTORY,
+            tools=[TOOL],
+            temperature=0.1,
+            max_tokens=64,
+            response_format=ResponseFormat(json_schema=schema),
+            extras={"ollama": {"keep_alive": "5m"}},
+        )
+    )
     assert seen["url"] == "http://ollama:11434/api/chat"
     body = seen["body"]
     assert body["stream"] is False
-    assert body["messages"][2] == {"role": "assistant", "content": "", "tool_calls": [
-        {"function": {"name": TOOL.name, "arguments": {"job_id": "job-101"}}}]}
+    assert body["messages"][2] == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [{"function": {"name": TOOL.name, "arguments": {"job_id": "job-101"}}}],
+    }
     assert body["messages"][3] == {"role": "tool", "content": '{"id": "job-101"}', "tool_name": TOOL.name}
     assert body["tools"][0]["function"]["name"] == TOOL.name
     assert body["options"] == {"temperature": 0.1, "num_predict": 64}

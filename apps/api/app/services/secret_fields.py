@@ -18,8 +18,15 @@ from app.services.context import AuthContext
 
 async def put_field(session: AsyncSession, ctx: AuthContext, name: str, value: str) -> str:
     meta = await get_secret_manager().put(session, ctx.workspace_id, name, value, managed=True)
-    await audit(session, event_type=AuditEventType.secret_written, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="secret", entity_id=meta.id, payload={"name": name})
+    await audit(
+        session,
+        event_type=AuditEventType.secret_written,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="secret",
+        entity_id=meta.id,
+        payload={"name": name},
+    )
     return meta.ref
 
 
@@ -30,13 +37,24 @@ async def delete_field(session: AsyncSession, ctx: AuthContext, ref: str | None)
         await get_secret_manager().delete(session, ctx.workspace_id, ref)
     except Exception:  # noqa: BLE001 - already gone
         return
-    await audit(session, event_type=AuditEventType.secret_deleted, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="secret", entity_id=ref)
+    await audit(
+        session,
+        event_type=AuditEventType.secret_deleted,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="secret",
+        entity_id=ref,
+    )
 
 
 async def update_map(
-    session: AsyncSession, ctx: AuthContext, *, prefix: str, current: dict[str, Any],
-    new_values: dict[str, str], keep: list[str],
+    session: AsyncSession,
+    ctx: AuthContext,
+    *,
+    prefix: str,
+    current: dict[str, Any],
+    new_values: dict[str, str],
+    keep: list[str],
 ) -> dict[str, str]:
     """Replace a name -> secret_ref map: keep listed names, write new values, delete the rest."""
     result: dict[str, str] = {}
@@ -54,9 +72,18 @@ async def update_map(
 async def states(session: AsyncSession, workspace_id: uuid.UUID, refs: dict[str, Any]) -> dict[str, SecretFieldState]:
     out: dict[str, SecretFieldState] = {}
     ids = {name: parse_ref(str(ref)) for name, ref in refs.items() if ref}
-    rows = {s.id: s for s in (await session.scalars(
-        select(Secret).where(Secret.workspace_id == workspace_id, Secret.id.in_(ids.values()))
-    )).all()} if ids else {}
+    rows = (
+        {
+            s.id: s
+            for s in (
+                await session.scalars(
+                    select(Secret).where(Secret.workspace_id == workspace_id, Secret.id.in_(ids.values()))
+                )
+            ).all()
+        }
+        if ids
+        else {}
+    )
     for name in refs:
         row = rows.get(ids.get(name)) if name in ids else None  # type: ignore[arg-type]
         out[name] = SecretFieldState(is_set=row is not None, hint=row.hint if row else None)

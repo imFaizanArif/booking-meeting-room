@@ -33,9 +33,7 @@ class WorkspaceMember(IdMixin, TimestampMixin, Base):
     __tablename__ = "workspace_members"
     __table_args__ = (sa.UniqueConstraint("workspace_id", "user_id"),)
 
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        sa.ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
-    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(sa.ForeignKey("users.id", ondelete="CASCADE"), index=True)
     role: Mapped[Role] = mapped_column(enum_col(Role, name="role"))
 

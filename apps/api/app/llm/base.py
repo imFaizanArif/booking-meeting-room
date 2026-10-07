@@ -69,8 +69,9 @@ class HttpAdapter:
         message = self.error_message(response)
         lowered = message.lower()
         # Providers signal these via typed error codes inside 400 bodies.
-        if response.status_code == 400 and ("context_length" in lowered or "too long" in lowered
-                                            or "maximum context" in lowered):
+        if response.status_code == 400 and (
+            "context_length" in lowered or "too long" in lowered or "maximum context" in lowered
+        ):
             return errors.ContextTooLong(message, details={"provider": self.provider_name})
         if response.status_code == 400 and "content_filter" in lowered:
             return errors.ContentFiltered(message, details={"provider": self.provider_name})
@@ -82,11 +83,14 @@ class HttpAdapter:
             async with self.client() as client:
                 response = await client.post(path, json=payload)
         except httpx.TimeoutException as exc:
-            raise errors.TimeoutError_(f"{self.provider_name} request timed out",
-                                       details={"provider": self.provider_name}) from exc
+            raise errors.TimeoutError_(
+                f"{self.provider_name} request timed out", details={"provider": self.provider_name}
+            ) from exc
         except httpx.TransportError as exc:
-            raise errors.ProviderUnavailable(f"{self.provider_name} is unreachable: {exc.__class__.__name__}",
-                                             details={"provider": self.provider_name}) from exc
+            raise errors.ProviderUnavailable(
+                f"{self.provider_name} is unreachable: {exc.__class__.__name__}",
+                details={"provider": self.provider_name},
+            ) from exc
         latency_ms = int((time.perf_counter() - started) * 1000)
         if response.status_code >= 400:
             raise self.classify(response)

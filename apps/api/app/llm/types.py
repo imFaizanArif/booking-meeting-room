@@ -48,9 +48,7 @@ class ToolResultMessage(BaseModel):
     is_error: bool = False
 
 
-Message = Annotated[
-    SystemMessage | UserMessage | AssistantMessage | ToolResultMessage, Field(discriminator="role")
-]
+Message = Annotated[SystemMessage | UserMessage | AssistantMessage | ToolResultMessage, Field(discriminator="role")]
 
 
 class ToolDefinition(BaseModel):

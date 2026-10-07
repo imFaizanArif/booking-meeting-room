@@ -30,10 +30,20 @@ def test_registered_values_masked_anywhere() -> None:
     r = Redactor()
     r.register("sk-live-0123456789")
     r.register("abc")  # too short to register safely
-    payload = {"note": "using sk-live-0123456789 now", "nested": {"list": ["x", {"deep": "sk-live-0123456789"}]},
-               "tuple": ("sk-live-0123456789",), "short": "abc", "n": 5}
-    assert r.redact(payload) == {"note": f"using {MASK} now", "nested": {"list": ["x", {"deep": MASK}]},
-                                 "tuple": [MASK], "short": "abc", "n": 5}
+    payload = {
+        "note": "using sk-live-0123456789 now",
+        "nested": {"list": ["x", {"deep": "sk-live-0123456789"}]},
+        "tuple": ("sk-live-0123456789",),
+        "short": "abc",
+        "n": 5,
+    }
+    assert r.redact(payload) == {
+        "note": f"using {MASK} now",
+        "nested": {"list": ["x", {"deep": MASK}]},
+        "tuple": [MASK],
+        "short": "abc",
+        "n": 5,
+    }
     assert r.redact_text("prefix-sk-live-0123456789-suffix") == f"prefix-{MASK}-suffix"
 
 
@@ -46,13 +56,32 @@ def test_overlapping_values_prefer_longest() -> None:
 
 def test_sensitive_key_names_masked() -> None:
     r = Redactor()
-    payload = {"password": "hunter2", "Authorization": "Bearer x", "api_key": "k", "X-Api-Key": "k",
-               "client_secret": "s", "refresh_token": "t", "cookie": "c", "private_key": "p",
-               "headers": {"authorization": "Bearer y"}, "credentials": {"user": "u"},
-               "token": "", "secret": None}
+    payload = {
+        "password": "hunter2",
+        "Authorization": "Bearer x",
+        "api_key": "k",
+        "X-Api-Key": "k",
+        "client_secret": "s",
+        "refresh_token": "t",
+        "cookie": "c",
+        "private_key": "p",
+        "headers": {"authorization": "Bearer y"},
+        "credentials": {"user": "u"},
+        "token": "",
+        "secret": None,
+    }
     out = r.redact(payload)
-    for key in ("password", "Authorization", "api_key", "X-Api-Key", "client_secret", "refresh_token", "cookie",
-                "private_key", "credentials"):
+    for key in (
+        "password",
+        "Authorization",
+        "api_key",
+        "X-Api-Key",
+        "client_secret",
+        "refresh_token",
+        "cookie",
+        "private_key",
+        "credentials",
+    ):
         assert out[key] == MASK, key
     assert out["headers"] == {"authorization": MASK}
     assert out["token"] == "" and out["secret"] is None  # nothing to hide
@@ -60,6 +89,13 @@ def test_sensitive_key_names_masked() -> None:
 
 def test_safe_keys_are_kept() -> None:
     r = Redactor()
-    payload = {"api_key_secret_ref": "secret:123", "input_tokens": 10, "max_tokens": 5, "is_set": True,
-               "idempotency_key": "e:n:1", "total_tokens": 15, "title": "fine"}
+    payload = {
+        "api_key_secret_ref": "secret:123",
+        "input_tokens": 10,
+        "max_tokens": 5,
+        "is_set": True,
+        "idempotency_key": "e:n:1",
+        "total_tokens": 15,
+        "title": "fine",
+    }
     assert r.redact(payload) == payload

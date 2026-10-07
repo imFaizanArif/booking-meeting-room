@@ -54,7 +54,7 @@ class ModelSelection(Schema):
     temperature: float | None = Field(default=None, ge=0, le=2)
     max_tokens: int | None = Field(default=None, ge=1, le=128_000)
     provider_extras: dict[str, Any] = Field(
-        default_factory=dict, description="Namespaced by provider type, e.g. {\"anthropic\": {...}}"
+        default_factory=dict, description='Namespaced by provider type, e.g. {"anthropic": {...}}'
     )
 
 
@@ -201,8 +201,16 @@ class EndNode(_NodeBase):
 
 
 PipelineNode = Annotated[
-    TriggerNode | LLMNode | AgentNode | MCPToolNode | ConditionNode | TransformNode
-    | HumanApprovalNode | NotificationNode | DelayNode | EndNode,
+    TriggerNode
+    | LLMNode
+    | AgentNode
+    | MCPToolNode
+    | ConditionNode
+    | TransformNode
+    | HumanApprovalNode
+    | NotificationNode
+    | DelayNode
+    | EndNode,
     Field(discriminator="type"),
 ]
 

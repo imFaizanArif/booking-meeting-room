@@ -8,6 +8,7 @@ from decimal import Decimal
 from app.core.enums import ProviderType
 from app.llm.adapters.anthropic import AnthropicAdapter
 from app.llm.adapters.fake import FakeLLMProvider
+from app.llm.adapters.gemini import GeminiAdapter
 from app.llm.adapters.ollama import OllamaAdapter
 from app.llm.adapters.openai import OpenAIAdapter
 from app.llm.base import LLMProvider, ProviderConfig
@@ -19,6 +20,7 @@ _FACTORIES: dict[ProviderType, AdapterFactory] = {
     ProviderType.openai: OpenAIAdapter,
     ProviderType.anthropic: AnthropicAdapter,
     ProviderType.ollama: OllamaAdapter,
+    ProviderType.gemini: GeminiAdapter,
     ProviderType.fake: FakeLLMProvider,
 }
 

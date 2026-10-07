@@ -51,9 +51,7 @@ def configure_logging(level: str = "INFO", json: bool = True) -> None:
         structlog.processors.format_exc_info,
         _redact_processor,
     ]
-    renderer: Any = (
-        structlog.processors.JSONRenderer() if json else structlog.dev.ConsoleRenderer()
-    )
+    renderer: Any = structlog.processors.JSONRenderer() if json else structlog.dev.ConsoleRenderer()
     structlog.configure(
         processors=[*shared, renderer],
         wrapper_class=structlog.make_filtering_bound_logger(

@@ -51,13 +51,25 @@ class PasswordAuthenticator:
         return user
 
 
-async def login(session: AsyncSession, email: str, password: str, *, ip: str | None, user_agent: str | None,
-                authenticator: Authenticator | None = None) -> IssuedSession:
+async def login(
+    session: AsyncSession,
+    email: str,
+    password: str,
+    *,
+    ip: str | None,
+    user_agent: str | None,
+    authenticator: Authenticator | None = None,
+) -> IssuedSession:
     try:
         user = await (authenticator or PasswordAuthenticator()).authenticate(session, email, password)
     except InvalidCredentials:
-        await audit(session, event_type=AuditEventType.auth_login_failed, actor=Actor("anonymous", None, email[:320]),
-                    workspace_id=None, payload={"email": email[:320], "ip": ip})
+        await audit(
+            session,
+            event_type=AuditEventType.auth_login_failed,
+            actor=Actor("anonymous", None, email[:320]),
+            workspace_id=None,
+            payload={"email": email[:320], "ip": ip},
+        )
         await session.commit()
         raise
     member = await session.scalar(
@@ -66,11 +78,17 @@ async def login(session: AsyncSession, email: str, password: str, *, ip: str | N
     if member is None:
         raise InvalidCredentials("This account has no workspace access")
     token, csrf = new_token(), new_token()
-    session.add(UserSession(
-        user_id=user.id, workspace_id=member.workspace_id, token_hash=sha256_hex(token), csrf_token=csrf,
-        expires_at=utcnow() + timedelta(hours=get_settings().session_ttl_hours), ip=ip,
-        user_agent=(user_agent or "")[:400],
-    ))
+    session.add(
+        UserSession(
+            user_id=user.id,
+            workspace_id=member.workspace_id,
+            token_hash=sha256_hex(token),
+            csrf_token=csrf,
+            expires_at=utcnow() + timedelta(hours=get_settings().session_ttl_hours),
+            ip=ip,
+            user_agent=(user_agent or "")[:400],
+        )
+    )
     user.last_login_at = utcnow()
     ctx = AuthContext(user_id=user.id, workspace_id=member.workspace_id, role=member.role, email=user.email, ip=ip)
     await audit(session, event_type=AuditEventType.auth_login, actor=ctx, workspace_id=member.workspace_id)
@@ -84,8 +102,11 @@ async def resolve_session(session: AsyncSession, token: str | None) -> tuple[Aut
     row = await session.scalar(select(UserSession).where(UserSession.token_hash == sha256_hex(token)))
     if row is None or row.revoked_at is not None or row.expires_at < utcnow():
         raise Unauthenticated("Your session has ended. Sign in again.")
-    member = await session.scalar(select(WorkspaceMember).where(
-        WorkspaceMember.user_id == row.user_id, WorkspaceMember.workspace_id == row.workspace_id))
+    member = await session.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.user_id == row.user_id, WorkspaceMember.workspace_id == row.workspace_id
+        )
+    )
     user = await session.get(User, row.user_id)
     if member is None or user is None or not user.is_active:
         raise Unauthenticated("Your access has changed. Sign in again.")

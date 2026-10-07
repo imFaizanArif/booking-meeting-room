@@ -55,9 +55,15 @@ async def publish_execution_event(
         if seq is None:
             raise LookupError(f"execution {execution_id} not found")
         row = ExecutionEvent(
-            workspace_id=workspace_id, execution_id=execution_id, seq=seq, type=type,
-            node_id=node_id, tool_call_id=tool_call_id, approval_id=approval_id,
-            payload=clean, created_at=utcnow(),
+            workspace_id=workspace_id,
+            execution_id=execution_id,
+            seq=seq,
+            type=type,
+            node_id=node_id,
+            tool_call_id=tool_call_id,
+            approval_id=approval_id,
+            payload=clean,
+            created_at=utcnow(),
         )
         session.add(row)
         await session.flush()
@@ -69,9 +75,13 @@ async def publish_execution_event(
         if type in _WORKSPACE_FANOUT:
             await bus.publish(
                 workspace_channel(workspace_id),
-                {"type": type.value, "execution_id": str(execution_id),
-                 "approval_id": str(approval_id) if approval_id else None,
-                 "payload": clean, "at": message["created_at"]},
+                {
+                    "type": type.value,
+                    "execution_id": str(execution_id),
+                    "approval_id": str(approval_id) if approval_id else None,
+                    "payload": clean,
+                    "at": message["created_at"],
+                },
             )
     except Exception as exc:  # pub/sub loss is tolerated; clients replay from Postgres
         log.warning("event_publish_failed", error=str(exc), event_type=type.value)
@@ -79,12 +89,17 @@ async def publish_execution_event(
 
 
 async def publish_workspace_event(
-    workspace_id: uuid.UUID, type: EventType, *, server_id: uuid.UUID | None = None,
+    workspace_id: uuid.UUID,
+    type: EventType,
+    *,
+    server_id: uuid.UUID | None = None,
     payload: dict[str, Any] | None = None,
 ) -> None:
     message = {
-        "type": type.value, "server_id": str(server_id) if server_id else None,
-        "payload": redactor.redact(payload or {}), "at": utcnow().isoformat(),
+        "type": type.value,
+        "server_id": str(server_id) if server_id else None,
+        "payload": redactor.redact(payload or {}),
+        "at": utcnow().isoformat(),
     }
     try:
         await get_event_bus().publish(workspace_channel(workspace_id), message)

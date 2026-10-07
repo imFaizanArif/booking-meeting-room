@@ -34,57 +34,93 @@ from app.workers.queue import Job, get_queue
 
 
 async def server_out(session: AsyncSession, s: MCPServer) -> MCPServerOut:
-    counts = (await session.execute(
-        select(func.count(), func.count().filter(MCPTool.is_enabled.is_(True)))
-        .where(MCPTool.server_id == s.id, MCPTool.is_stale.is_(False))
-    )).one()
+    counts = (
+        await session.execute(
+            select(func.count(), func.count().filter(MCPTool.is_enabled.is_(True))).where(
+                MCPTool.server_id == s.id, MCPTool.is_stale.is_(False)
+            )
+        )
+    ).one()
     return MCPServerOut(
-        id=s.id, name=s.name, slug=s.slug, description=s.description, transport=s.transport, command=s.command,
-        args=list(s.args or []), cwd=s.cwd, url=s.url,
+        id=s.id,
+        name=s.name,
+        slug=s.slug,
+        description=s.description,
+        transport=s.transport,
+        command=s.command,
+        args=list(s.args or []),
+        cwd=s.cwd,
+        url=s.url,
         env=await secret_fields.states(session, s.workspace_id, s.env_refs or {}),
         headers=await secret_fields.states(session, s.workspace_id, s.header_refs or {}),
-        isolation=s.isolation, status=s.status, status_message=s.status_message, is_active=s.is_active,
-        connect_timeout_s=s.connect_timeout_s, call_timeout_s=s.call_timeout_s,
-        requests_per_minute=s.requests_per_minute, last_connected_at=s.last_connected_at,
-        last_discovered_at=s.last_discovered_at, command_confirmed_at=s.command_confirmed_at,
-        tool_count=counts[0], enabled_tool_count=counts[1], created_at=s.created_at, updated_at=s.updated_at,
+        isolation=s.isolation,
+        status=s.status,
+        status_message=s.status_message,
+        is_active=s.is_active,
+        connect_timeout_s=s.connect_timeout_s,
+        call_timeout_s=s.call_timeout_s,
+        requests_per_minute=s.requests_per_minute,
+        last_connected_at=s.last_connected_at,
+        last_discovered_at=s.last_discovered_at,
+        command_confirmed_at=s.command_confirmed_at,
+        tool_count=counts[0],
+        enabled_tool_count=counts[1],
+        created_at=s.created_at,
+        updated_at=s.updated_at,
     )
 
 
 async def _get(session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID) -> MCPServer:
-    row = await session.scalar(select(MCPServer).where(MCPServer.id == server_id,
-                                                       MCPServer.workspace_id == ctx.workspace_id))
+    row = await session.scalar(
+        select(MCPServer).where(MCPServer.id == server_id, MCPServer.workspace_id == ctx.workspace_id)
+    )
     if row is None:
         raise NotFound("MCP server not found")
     return row
 
 
 def _snapshot(s: MCPServer) -> dict[str, Any]:
-    return {"name": s.name, "transport": s.transport.value, "command": s.command, "args": s.args, "url": s.url,
-            "env": sorted((s.env_refs or {}).keys()), "headers": sorted((s.header_refs or {}).keys()),
-            "isolation": s.isolation.value, "is_active": s.is_active}
+    return {
+        "name": s.name,
+        "transport": s.transport.value,
+        "command": s.command,
+        "args": s.args,
+        "url": s.url,
+        "env": sorted((s.env_refs or {}).keys()),
+        "headers": sorted((s.header_refs or {}).keys()),
+        "isolation": s.isolation.value,
+        "is_active": s.is_active,
+    }
 
 
 async def _validate(ctx: AuthContext, data: MCPServerIn) -> None:
     if data.transport == TransportType.stdio:
         ctx.require(Role.owner)  # stdio servers run local commands
         if not data.command:
-            raise ValidationFailed("stdio servers need a command",
-                                   details={"fields": [{"field": "command", "message": "Required for stdio"}]})
+            raise ValidationFailed(
+                "stdio servers need a command",
+                details={"fields": [{"field": "command", "message": "Required for stdio"}]},
+            )
         if data.is_active and not data.confirm_command:
             raise ValidationFailed(
                 "Confirm the exact command before activating a stdio server",
-                details={"fields": [{"field": "confirm_command", "message": "Review the command and confirm"}]})
+                details={"fields": [{"field": "confirm_command", "message": "Review the command and confirm"}]},
+            )
     else:
         if not data.url:
-            raise ValidationFailed("Remote servers need a URL",
-                                   details={"fields": [{"field": "url", "message": "Required for HTTP transports"}]})
+            raise ValidationFailed(
+                "Remote servers need a URL",
+                details={"fields": [{"field": "url", "message": "Required for HTTP transports"}]},
+            )
         await guard_url(data.url)
 
 
 async def list_servers(session: AsyncSession, ctx: AuthContext) -> list[MCPServerOut]:
-    rows = (await session.scalars(select(MCPServer).where(MCPServer.workspace_id == ctx.workspace_id)
-                                  .order_by(MCPServer.name))).all()
+    rows = (
+        await session.scalars(
+            select(MCPServer).where(MCPServer.workspace_id == ctx.workspace_id).order_by(MCPServer.name)
+        )
+    ).all()
     return [await server_out(session, r) for r in rows]
 
 
@@ -96,39 +132,74 @@ async def create_server(session: AsyncSession, ctx: AuthContext, data: MCPServer
     ctx.require(Role.owner if data.transport == TransportType.stdio else Role.operator)
     await _validate(ctx, data)
     slug = data.slug or slugify(data.name)[:40]
-    if await session.scalar(select(MCPServer.id).where(MCPServer.workspace_id == ctx.workspace_id,
-                                                       MCPServer.slug == slug)):
-        raise Conflict("A server with this slug already exists", details={"fields": [
-            {"field": "slug", "message": "Choose a different slug"}]})
+    if await session.scalar(
+        select(MCPServer.id).where(MCPServer.workspace_id == ctx.workspace_id, MCPServer.slug == slug)
+    ):
+        raise Conflict(
+            "A server with this slug already exists",
+            details={"fields": [{"field": "slug", "message": "Choose a different slug"}]},
+        )
     server = MCPServer(
-        workspace_id=ctx.workspace_id, name=data.name, slug=slug, description=data.description,
-        transport=data.transport, command=data.command, args=data.args, cwd=data.cwd, url=data.url,
-        isolation=data.isolation, is_active=data.is_active, connect_timeout_s=data.connect_timeout_s,
-        call_timeout_s=data.call_timeout_s, requests_per_minute=data.requests_per_minute,
+        workspace_id=ctx.workspace_id,
+        name=data.name,
+        slug=slug,
+        description=data.description,
+        transport=data.transport,
+        command=data.command,
+        args=data.args,
+        cwd=data.cwd,
+        url=data.url,
+        isolation=data.isolation,
+        is_active=data.is_active,
+        connect_timeout_s=data.connect_timeout_s,
+        call_timeout_s=data.call_timeout_s,
+        requests_per_minute=data.requests_per_minute,
         command_confirmed_at=utcnow() if data.confirm_command and data.transport == TransportType.stdio else None,
     )
     session.add(server)
     await session.flush()
-    server.env_refs = await secret_fields.update_map(session, ctx, prefix=f"mcp:{server.id}:env", current={},
-                                                     new_values=data.env, keep=[])
-    server.header_refs = await secret_fields.update_map(session, ctx, prefix=f"mcp:{server.id}:header", current={},
-                                                        new_values=data.headers, keep=[])
+    server.env_refs = await secret_fields.update_map(
+        session, ctx, prefix=f"mcp:{server.id}:env", current={}, new_values=data.env, keep=[]
+    )
+    server.header_refs = await secret_fields.update_map(
+        session, ctx, prefix=f"mcp:{server.id}:header", current={}, new_values=data.headers, keep=[]
+    )
     server.config_hash = compute_config_hash(server)
-    await audit(session, event_type=AuditEventType.config_created, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="mcp_server", entity_id=server.id, payload=_snapshot(server))
+    await audit(
+        session,
+        event_type=AuditEventType.config_created,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="mcp_server",
+        entity_id=server.id,
+        payload=_snapshot(server),
+    )
     await session.flush()
     return await server_out(session, server)
 
 
-async def update_server(session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID,
-                        data: MCPServerIn) -> MCPServerOut:
+async def update_server(
+    session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID, data: MCPServerIn
+) -> MCPServerOut:
     server = await _get(session, ctx, server_id)
     ctx.require(Role.owner if TransportType.stdio in (server.transport, data.transport) else Role.operator)
     await _validate(ctx, data)
     before = _snapshot(server)
     command_changed = (server.command, list(server.args or [])) != (data.command, data.args)
-    for key in ("name", "description", "transport", "command", "args", "cwd", "url", "isolation", "is_active",
-                "connect_timeout_s", "call_timeout_s", "requests_per_minute"):
+    for key in (
+        "name",
+        "description",
+        "transport",
+        "command",
+        "args",
+        "cwd",
+        "url",
+        "isolation",
+        "is_active",
+        "connect_timeout_s",
+        "call_timeout_s",
+        "requests_per_minute",
+    ):
         setattr(server, key, getattr(data, key))
     if data.slug and data.slug != server.slug:
         server.slug = data.slug
@@ -138,17 +209,36 @@ async def update_server(session: AsyncSession, ctx: AuthContext, server_id: uuid
         elif command_changed:
             server.command_confirmed_at = None
             if server.is_active:
-                raise ValidationFailed("The command changed. Confirm it before keeping the server active.",
-                                       details={"fields": [{"field": "confirm_command", "message": "Confirm"}]})
-    server.env_refs = await secret_fields.update_map(session, ctx, prefix=f"mcp:{server.id}:env",
-                                                     current=dict(server.env_refs or {}), new_values=data.env,
-                                                     keep=data.env_keep)
-    server.header_refs = await secret_fields.update_map(session, ctx, prefix=f"mcp:{server.id}:header",
-                                                        current=dict(server.header_refs or {}),
-                                                        new_values=data.headers, keep=data.headers_keep)
+                raise ValidationFailed(
+                    "The command changed. Confirm it before keeping the server active.",
+                    details={"fields": [{"field": "confirm_command", "message": "Confirm"}]},
+                )
+    server.env_refs = await secret_fields.update_map(
+        session,
+        ctx,
+        prefix=f"mcp:{server.id}:env",
+        current=dict(server.env_refs or {}),
+        new_values=data.env,
+        keep=data.env_keep,
+    )
+    server.header_refs = await secret_fields.update_map(
+        session,
+        ctx,
+        prefix=f"mcp:{server.id}:header",
+        current=dict(server.header_refs or {}),
+        new_values=data.headers,
+        keep=data.headers_keep,
+    )
     server.config_hash = compute_config_hash(server)
-    await audit(session, event_type=AuditEventType.config_updated, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="mcp_server", entity_id=server.id, payload={"changes": diff(before, _snapshot(server))})
+    await audit(
+        session,
+        event_type=AuditEventType.config_updated,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="mcp_server",
+        entity_id=server.id,
+        payload={"changes": diff(before, _snapshot(server))},
+    )
     await session.flush()
     return await server_out(session, server)
 
@@ -159,8 +249,15 @@ async def delete_server(session: AsyncSession, ctx: AuthContext, server_id: uuid
     for ref in list((server.env_refs or {}).values()) + list((server.header_refs or {}).values()):
         await secret_fields.delete_field(session, ctx, str(ref))
     await session.delete(server)
-    await audit(session, event_type=AuditEventType.config_deleted, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="mcp_server", entity_id=server_id, payload={"name": server.name})
+    await audit(
+        session,
+        event_type=AuditEventType.config_deleted,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="mcp_server",
+        entity_id=server_id,
+        payload={"name": server.name},
+    )
 
 
 async def _worker_call(job: Job, server_id: uuid.UUID, timeout_s: float = 45) -> dict[str, Any]:
@@ -177,8 +274,9 @@ async def test_server(session: AsyncSession, ctx: AuthContext, server_id: uuid.U
     server = await _get(session, ctx, server_id)
     await session.commit()
     result = await _worker_call(Job.test_server, server.id)
-    return TestResult(ok=bool(result.get("ok")), message=result["message"],
-                      details={"server_info": result.get("server_info") or {}})
+    return TestResult(
+        ok=bool(result.get("ok")), message=result["message"], details={"server_info": result.get("server_info") or {}}
+    )
 
 
 async def discover(session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID) -> DiscoveryOut:
@@ -186,22 +284,41 @@ async def discover(session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID
     server = await _get(session, ctx, server_id)
     await session.commit()
     result = await _worker_call(Job.discover_server, server.id, timeout_s=60)
-    await audit(session, event_type=AuditEventType.config_updated, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="mcp_server", entity_id=server_id,
-                payload={"action": "discover", "ok": result.get("ok"), "added": result.get("added"),
-                         "stale": result.get("stale")})
-    return DiscoveryOut(ok=bool(result.get("ok")), message=result["message"],
-                        added=result.get("added") or [], updated=result.get("updated") or [],
-                        stale=result.get("stale") or [], schema_changed=result.get("schema_changed") or [])
+    await audit(
+        session,
+        event_type=AuditEventType.config_updated,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="mcp_server",
+        entity_id=server_id,
+        payload={
+            "action": "discover",
+            "ok": result.get("ok"),
+            "added": result.get("added"),
+            "stale": result.get("stale"),
+        },
+    )
+    return DiscoveryOut(
+        ok=bool(result.get("ok")),
+        message=result["message"],
+        added=result.get("added") or [],
+        updated=result.get("updated") or [],
+        stale=result.get("stale") or [],
+        schema_changed=result.get("schema_changed") or [],
+    )
 
 
 # ---- tools --------------------------------------------------------------------------------------
 
 
-async def list_tools(session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID | None = None,
-                     include_stale: bool = True) -> list[MCPToolOut]:
-    query = select(MCPTool, MCPServer.slug, MCPServer.name).join(MCPServer, MCPServer.id == MCPTool.server_id) \
+async def list_tools(
+    session: AsyncSession, ctx: AuthContext, server_id: uuid.UUID | None = None, include_stale: bool = True
+) -> list[MCPToolOut]:
+    query = (
+        select(MCPTool, MCPServer.slug, MCPServer.name)
+        .join(MCPServer, MCPServer.id == MCPTool.server_id)
         .where(MCPTool.workspace_id == ctx.workspace_id)
+    )
     if server_id:
         query = query.where(MCPTool.server_id == server_id)
     if not include_stale:
@@ -226,10 +343,18 @@ async def update_tool(session: AsyncSession, ctx: AuthContext, tool_id: uuid.UUI
     before = {k: getattr(tool, k) for k in changes}
     for key, value in changes.items():
         setattr(tool, key, value)
-    await audit(session, event_type=AuditEventType.config_updated, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="mcp_tool", entity_id=tool.id,
-                payload={"tool": tool.name, "changes": diff({k: str(v) for k, v in before.items()},
-                                                            {k: str(v) for k, v in changes.items()})})
+    await audit(
+        session,
+        event_type=AuditEventType.config_updated,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="mcp_tool",
+        entity_id=tool.id,
+        payload={
+            "tool": tool.name,
+            "changes": diff({k: str(v) for k, v in before.items()}, {k: str(v) for k, v in changes.items()}),
+        },
+    )
     await session.flush()
     return next(t for t in await list_tools(session, ctx, tool.server_id) if t.id == tool.id)
 
@@ -243,9 +368,15 @@ async def bulk_update_tools(session: AsyncSession, ctx: AuthContext, data: MCPTo
     if changes.get("is_enabled"):
         query = query.where(MCPTool.is_stale.is_(False))
     await session.execute(query.values(**changes))
-    await audit(session, event_type=AuditEventType.config_updated, actor=ctx, workspace_id=ctx.workspace_id,
-                entity_type="mcp_tool", entity_id=None,
-                payload={"bulk": [str(i) for i in data.tool_ids], "changes": {k: str(v) for k, v in changes.items()}})
+    await audit(
+        session,
+        event_type=AuditEventType.config_updated,
+        actor=ctx,
+        workspace_id=ctx.workspace_id,
+        entity_type="mcp_tool",
+        entity_id=None,
+        payload={"bulk": [str(i) for i in data.tool_ids], "changes": {k: str(v) for k, v in changes.items()}},
+    )
     await session.flush()
     ids = set(data.tool_ids)
     return [t for t in await list_tools(session, ctx) if t.id in ids]

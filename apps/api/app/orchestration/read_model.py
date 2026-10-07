@@ -82,13 +82,13 @@ async def set_execution_status(
         payload = {"status": new.value, **(event_payload or {})}
         if error:
             payload["error"] = error
-        await publish_execution_event(workspace_id=workspace_id, execution_id=execution_id, type=event,
-                                      payload=payload)
+        await publish_execution_event(workspace_id=workspace_id, execution_id=execution_id, type=event, payload=payload)
     return True
 
 
-async def require_execution_status(execution_id: uuid.UUID, workspace_id: uuid.UUID, new: ExecutionStatus,
-                                   **kwargs: Any) -> None:
+async def require_execution_status(
+    execution_id: uuid.UUID, workspace_id: uuid.UUID, new: ExecutionStatus, **kwargs: Any
+) -> None:
     if not await set_execution_status(execution_id, workspace_id, new, **kwargs):
         raise IllegalTransition(f"Execution could not move to {new.value}", details={"to": new.value})
 
@@ -102,8 +102,14 @@ async def upsert_node(
     **values: Any,
 ) -> None:
     now = utcnow()
-    row = {"execution_id": execution_id, "node_id": node_id, "node_type": node_type, "name": name,
-           "status": status, **values}
+    row = {
+        "execution_id": execution_id,
+        "node_id": node_id,
+        "node_type": node_type,
+        "name": name,
+        "status": status,
+        **values,
+    }
     if status == NodeStatus.running:
         row.setdefault("started_at", now)
     if status in (NodeStatus.completed, NodeStatus.failed, NodeStatus.skipped, NodeStatus.cancelled):
@@ -120,5 +126,6 @@ async def upsert_node(
 async def node_event(
     workspace_id: uuid.UUID, execution_id: uuid.UUID, type: EventType, node_id: str, payload: dict[str, Any]
 ) -> None:
-    await publish_execution_event(workspace_id=workspace_id, execution_id=execution_id, type=type,
-                                  node_id=node_id, payload=payload)
+    await publish_execution_event(
+        workspace_id=workspace_id, execution_id=execution_id, type=type, node_id=node_id, payload=payload
+    )

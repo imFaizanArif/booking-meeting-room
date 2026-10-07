@@ -9,8 +9,10 @@ from app.prompts.render import TemplateError, preview, referenced_variables, ren
 
 
 def test_renders_variables_loops_and_filters() -> None:
-    out = render("Hi {{ name }}.{% for s in skills %} [{{ s | upper }}]{% endfor %} {{ data | tojson }}",
-                 {"name": "Sam", "skills": ["py", "sql"], "data": {"a": 1}})
+    out = render(
+        "Hi {{ name }}.{% for s in skills %} [{{ s | upper }}]{% endfor %} {{ data | tojson }}",
+        {"name": "Sam", "skills": ["py", "sql"], "data": {"a": 1}},
+    )
     assert out == 'Hi Sam. [PY] [SQL] {"a": 1}'
     assert render("{{ text | truncate_chars(3) }}", {"text": "abcdef"}) == "abc…"
 
