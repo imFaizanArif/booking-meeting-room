@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Kbd } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/menus";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip } from "@/components/ui/menus";
 import { usePendingCount } from "@/features/approvals/queries";
 import { useLogout, useMe } from "@/features/auth/queries";
 import { cn } from "@/lib/utils";
@@ -17,13 +17,49 @@ function isActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar() {
+export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const { data: me } = useMe();
   const pending = usePendingCount();
   const logout = useLogout();
   const { theme, setTheme, setPaletteOpen } = useUI();
   const Brand = BRAND_ICON;
+
+  if (collapsed) {
+    return (
+      <aside className="flex h-full w-[52px] shrink-0 flex-col items-center border-r border-border bg-subtle py-3" aria-label="Main">
+        <Link href="/" aria-label="Agent Platform" className="mb-3">
+          <Brand className="size-4 text-fg" />
+        </Link>
+        <nav className="flex flex-1 flex-col items-center gap-px">
+          {NAV.flatMap((g) => g.items).map((item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
+            const count = item.href === "/approvals" ? pending.data : undefined;
+            return (
+              <Tooltip key={item.href} content={item.label} side="right">
+                <Link
+                  href={item.href}
+                  aria-label={item.label}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "relative flex size-8 items-center justify-center rounded-md text-fg-muted transition-colors duration-100 hover:bg-muted hover:text-fg",
+                    active && "bg-surface text-fg shadow-[0_0_0_1px_var(--border)]",
+                  )}
+                >
+                  <Icon className="size-4" aria-hidden />
+                  {count ? <span className="absolute right-1 top-1 size-1.5 rounded-full bg-warn" aria-hidden /> : null}
+                </Link>
+              </Tooltip>
+            );
+          })}
+        </nav>
+        <span className="flex size-6 items-center justify-center rounded-full bg-ink text-2xs font-semibold uppercase text-ink-fg" title={me?.email}>
+          {me?.email?.[0] ?? "?"}
+        </span>
+      </aside>
+    );
+  }
 
   return (
     <aside className="flex h-full w-[216px] shrink-0 flex-col border-r border-border bg-subtle">

@@ -99,7 +99,7 @@ export function ProvidersSection({ role }: { role: string | undefined }) {
         <EmptyState
           icon={Server}
           title="No providers yet"
-          body="Add an OpenAI, Anthropic or Ollama connection so pipelines can call a model."
+          body="Add an OpenAI, Anthropic, Gemini or Ollama connection so pipelines can call a model."
           action={add}
         />
       ) : (

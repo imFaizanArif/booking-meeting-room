@@ -21,7 +21,9 @@ export function useExecutionStream(executionId: string | undefined, onEvent: (ev
   const [state, setState] = React.useState<StreamState>("connecting");
   const lastSeq = React.useRef(0);
   const handler = React.useRef(onEvent);
-  handler.current = onEvent;
+  React.useLayoutEffect(() => {
+    handler.current = onEvent;
+  });
 
   React.useEffect(() => {
     if (!executionId || !enabled) return;
@@ -70,7 +72,7 @@ export function useExecutionStream(executionId: string | undefined, onEvent: (ev
     };
   }, [executionId, enabled]);
 
-  return { state, lastSeq: lastSeq.current };
+  return { state };
 }
 
 /** Workspace-level notifications: invalidate the relevant queries when something changes. */

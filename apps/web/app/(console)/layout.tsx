@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import * as React from "react";
 
 import { CommandPalette } from "@/components/shell/command-palette";
@@ -11,6 +12,8 @@ import { useUI } from "@/stores/ui";
 
 export default function ConsoleLayout({ children }: { children: React.ReactNode }) {
   const me = useMe();
+  const pathname = usePathname();
+  const builder = /^\/pipelines\/[^/]+$/.test(pathname);
   useWorkspaceStream();
   React.useEffect(() => {
     let stored: string | null = null;
@@ -33,7 +36,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      <Sidebar />
+      <Sidebar collapsed={builder} />
       <main className="scrollbar-thin min-w-0 flex-1 overflow-y-auto">{children}</main>
       <CommandPalette />
     </div>

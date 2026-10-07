@@ -39,6 +39,33 @@ SSE note: make sure the proxy does not buffer `text/event-stream` responses
 
 ## Database
 
+### Supabase (or any hosted Postgres)
+
+Supabase is plain Postgres 15+, so nothing in the schema changes. Set `DATABASE_URL` to one of the
+connection strings from **Project Settings → Database**, with the scheme changed to
+`postgresql+asyncpg://`:
+
+| Mode | Host and port | Use for |
+| --- | --- | --- |
+| Direct | `db.<project>.supabase.co:5432` | Best choice when the host has IPv6. Migrations, API, workers. |
+| Session pooler | `aws-0-<region>.pooler.supabase.com:5432` | IPv4-only hosts. Behaves like a direct connection. |
+| Transaction pooler | `aws-0-<region>.pooler.supabase.com:6543` | Many short-lived processes. Works, with the caveats below. |
+
+- TLS is turned on automatically for `*.supabase.co` / `*.supabase.com` (`DATABASE_SSL=auto`).
+- On the transaction pooler (`DATABASE_POOLER=auto` detects port 6543) asyncpg's statement cache
+  is disabled and prepared statements get unique names, and the LangGraph checkpointer stops
+  preparing statements, because PgBouncer does not keep them across transactions.
+- Prefer the direct or session connection for `alembic upgrade head`; long DDL transactions are
+  fine there.
+- Keep `DATABASE_POOL_SIZE` × (API replicas + workers) under the plan's connection limit.
+- Redis is still required (queue and pub/sub); Supabase does not replace it. Any managed Redis
+  (Upstash, Redis Cloud, ElastiCache) works via `REDIS_URL`.
+- Supabase Row Level Security is not used: the app connects as a server role and enforces
+  workspace isolation itself. Do not expose these tables through Supabase's REST API; leave RLS on
+  with no policies, or revoke `anon`/`authenticated` access to the schema.
+
+### Roles
+
 Create a dedicated role for the app. If it is named `agent_platform_app`, the initial
 migration revokes `UPDATE/DELETE/TRUNCATE` on `audit_events` from it; the triggers reject
 those statements for every role regardless.

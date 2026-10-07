@@ -8,7 +8,7 @@ Postgres, idempotent tool calls, crash recovery that never re-runs a destructive
 ```
 Next.js console ──REST/SSE──► FastAPI (validate, persist, enqueue)
                                    │ arq (Redis)
-                        worker(s) ─┴─ LangGraph ─ LLM adapters (OpenAI · Anthropic · Ollama · fake)
+                        worker(s) ─┴─ LangGraph ─ LLM adapters (OpenAI · Anthropic · Gemini · Ollama · fake)
                                    │            └ ToolRouter ─ policy ─ HITL ─ MCP (stdio · Streamable HTTP · SSE)
                         scheduler ─┘ (enqueue only: schedules, timers, recovery, approval expiry)
 Postgres: config, versions, checkpoints, read model, tool calls, approvals, usage, append-only audit
@@ -22,8 +22,10 @@ open http://localhost:3000        # admin@example.com / admin-password
 ```
 
 Migrations and the demo seed run automatically. The demo needs no API keys: an offline
-fake provider is active, and OpenAI, Anthropic and Ollama are seeded inactive until you add
-keys on **Models**.
+fake provider is active, and OpenAI, Anthropic, Google Gemini and Ollama are seeded inactive until
+you add keys on **Models**. To use Gemini: **Models → Google Gemini → Edit**, paste the API key from
+Google AI Studio, **Test connection**, then activate it and pick `gemini-2.5-flash` or
+`gemini-2.5-pro` as the default model (or per node).
 
 ## Quick start (local, no Docker)
 

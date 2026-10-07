@@ -26,12 +26,13 @@ export function NewPipelineModal({ open, onOpenChange }: { open: boolean; onOpen
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { name: "", description: "" } });
   const [formError, setFormError] = React.useState<ApiError | null>(null);
 
-  React.useEffect(() => {
-    if (!open) {
+  const setOpen = (next: boolean) => {
+    if (!next) {
       form.reset();
       setFormError(null);
     }
-  }, [open, form]);
+    onOpenChange(next);
+  };
 
   const submit = form.handleSubmit((values) => {
     setFormError(null);
@@ -57,12 +58,12 @@ export function NewPipelineModal({ open, onOpenChange }: { open: boolean; onOpen
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={setOpen}
       title="New pipeline"
       description="Starts with a trigger connected to an end node. You build the rest in the editor."
       footer={
         <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button variant="primary" type="submit" form="new-pipeline-form" loading={create.isPending}>
