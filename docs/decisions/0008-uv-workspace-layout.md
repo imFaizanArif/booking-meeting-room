@@ -3,8 +3,9 @@
 - Status: accepted
 
 ## Decision
-1. The platform lives in `agent-platform/` inside this repository so the existing meeting-room
-   booking app is preserved untouched.
+1. The platform was built in `agent-platform/` next to the existing meeting-room booking app,
+   which was left untouched. The `agent-platform` branch carries only the platform, at the
+   repository root, with no history shared with the booking app.
 2. The Python side is a **uv workspace** (`apps/api`, `apps/mock-mcp`) with one lockfile.
 3. `apps/api/app/hitl/` holds approval decision logic; `apps/api/app/orchestration/nodes/`
    holds one module per node type; `apps/api/app/realtime/` holds the SSE gateway (the
@@ -19,5 +20,5 @@ the prompt (session revocation, immutable prompt versions, fire-once proof, gap-
 replay, durable delays, channel config).
 
 ## Trade-off
-Two levels of nesting in the repo. A future split can move `agent-platform/` to its own
-repository with `git filter-repo` without changing anything inside it.
+None left for (1): the split was done with `git subtree split`, and nothing inside the platform
+depended on the folder name.
