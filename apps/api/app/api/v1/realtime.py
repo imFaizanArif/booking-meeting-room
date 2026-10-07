@@ -9,7 +9,6 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, Header, Query
-from pydantic import BaseModel
 from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
@@ -20,12 +19,13 @@ from app.db.session import session_scope
 from app.events.bus import get_event_bus
 from app.events.schemas import ExecutionEventOut, execution_channel, workspace_channel
 from app.models import Execution, ExecutionEvent
+from app.schemas.common import Schema
 
 router = APIRouter(prefix="/realtime", tags=["realtime"])
 _TOKEN_TTL_S = 120
 
 
-class RealtimeToken(BaseModel):
+class RealtimeToken(Schema):
     token: str
     expires_in: int
 

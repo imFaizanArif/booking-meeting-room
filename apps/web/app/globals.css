@@ -1,0 +1,218 @@
+@import "tailwindcss";
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/*
+ * Design tokens. Neutrals are tinted toward a cool slate (hue 255) so surfaces read as one
+ * family. Colour is reserved for status; actions are monochrome ink.
+ */
+:root {
+  color-scheme: light;
+  --bg: oklch(0.985 0.002 255);
+  --surface: oklch(1 0 0);
+  --subtle: oklch(0.965 0.004 255);
+  --muted: oklch(0.945 0.005 255);
+  --border: oklch(0.91 0.006 255);
+  --border-strong: oklch(0.84 0.008 255);
+  --fg: oklch(0.22 0.014 255);
+  --fg-muted: oklch(0.46 0.013 255);
+  --fg-subtle: oklch(0.6 0.011 255);
+  --ink: oklch(0.24 0.016 255);
+  --ink-hover: oklch(0.32 0.016 255);
+  --ink-fg: oklch(0.99 0.002 255);
+  --ring: oklch(0.58 0.14 255);
+
+  --info: oklch(0.52 0.14 252);
+  --info-bg: oklch(0.955 0.025 252);
+  --warn: oklch(0.52 0.11 65);
+  --warn-bg: oklch(0.965 0.04 85);
+  --ok: oklch(0.5 0.12 152);
+  --ok-bg: oklch(0.955 0.035 152);
+  --danger: oklch(0.53 0.18 27);
+  --danger-bg: oklch(0.96 0.025 27);
+  --danger-hover: oklch(0.47 0.18 27);
+
+  --canvas-dot: oklch(0.86 0.006 255);
+  --overlay: oklch(0.2 0.02 255 / 0.32);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: oklch(0.165 0.008 255);
+  --surface: oklch(0.195 0.009 255);
+  --subtle: oklch(0.225 0.01 255);
+  --muted: oklch(0.255 0.011 255);
+  --border: oklch(0.29 0.011 255);
+  --border-strong: oklch(0.37 0.012 255);
+  --fg: oklch(0.94 0.005 255);
+  --fg-muted: oklch(0.72 0.01 255);
+  --fg-subtle: oklch(0.58 0.01 255);
+  --ink: oklch(0.93 0.006 255);
+  --ink-hover: oklch(0.85 0.008 255);
+  --ink-fg: oklch(0.18 0.01 255);
+  --ring: oklch(0.7 0.13 255);
+
+  --info: oklch(0.74 0.12 252);
+  --info-bg: oklch(0.27 0.05 252);
+  --warn: oklch(0.8 0.12 80);
+  --warn-bg: oklch(0.29 0.05 75);
+  --ok: oklch(0.76 0.13 152);
+  --ok-bg: oklch(0.27 0.05 152);
+  --danger: oklch(0.72 0.16 27);
+  --danger-bg: oklch(0.28 0.06 27);
+  --danger-hover: oklch(0.78 0.15 27);
+
+  --canvas-dot: oklch(0.3 0.01 255);
+  --overlay: oklch(0.08 0.01 255 / 0.6);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-ink-fg: var(--ink-fg);
+  --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-hover: var(--danger-hover);
+
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Dense console scale: 13px body. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss02";
+  }
+  ::selection {
+    background: oklch(0.58 0.14 255 / 0.22);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  code,
+  kbd,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: normal;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* Overlay motion: short, ease-out, origin-aware. Nothing animates for keyboard-driven UI. */
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drawer-in {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.anim-overlay[data-state="open"] { animation: overlay-in 160ms var(--ease-out); }
+.anim-dialog[data-state="open"] { animation: dialog-in 180ms var(--ease-out); }
+.anim-drawer[data-state="open"] { animation: drawer-in 200ms var(--ease-out); }
+.anim-pop[data-state="open"] { animation: pop-in 120ms var(--ease-out); transform-origin: var(--radix-popper-transform-origin); }
+.anim-pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* React Flow: match tokens. */
+.react-flow {
+  --xy-background-color: var(--bg);
+  --xy-node-border-radius: var(--radius-md);
+  --xy-edge-stroke: var(--border-strong);
+  --xy-edge-stroke-selected: var(--fg);
+  --xy-handle-background-color: var(--surface);
+  --xy-handle-border-color: var(--fg-subtle);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--subtle);
+  --xy-controls-button-color: var(--fg-muted);
+  --xy-controls-button-border-color: var(--border);
+  --xy-minimap-background-color: var(--surface);
+  --xy-attribution-background-color: transparent;
+}
+.react-flow__attribution { display: none; }
+
+/* CodeMirror inherits tokens. */
+.cm-editor { font-size: 12px; background: var(--surface); }
+.cm-editor.cm-focused { outline: none; }
+.cm-gutters { background: var(--subtle) !important; border-right: 1px solid var(--border) !important; color: var(--fg-subtle) !important; }

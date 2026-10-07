@@ -19,7 +19,15 @@ from app.core.time import utcnow
 from app.mcp.specs import compute_config_hash
 from app.mcp.types import namespaced
 from app.models import MCPServer, MCPTool
-from app.schemas.config import DiscoveryOut, MCPServerIn, MCPServerOut, MCPToolBulk, MCPToolOut, MCPToolPatch, TestResult
+from app.schemas.config import (
+    DiscoveryOut,
+    MCPServerIn,
+    MCPServerOut,
+    MCPToolBulk,
+    MCPToolOut,
+    MCPToolPatch,
+    TestResult,
+)
 from app.services import secret_fields
 from app.services.context import AuthContext
 from app.workers.queue import Job, get_queue

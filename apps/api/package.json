@@ -1,0 +1,10 @@
+{
+  "name": "@agent-platform/api",
+  "private": true,
+  "scripts": {
+    "dev": "uv run uvicorn app.main:app --reload --port 8000",
+    "lint": "uv run ruff check app tests && uv run ruff format --check app tests",
+    "typecheck": "uv run mypy app",
+    "test": "uv run pytest -q"
+  }
+}

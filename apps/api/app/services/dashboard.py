@@ -45,7 +45,7 @@ async def dashboard(session: AsyncSession, ctx: AuthContext) -> DashboardOut:
     pending, _ = await list_approvals(session, ctx, status=ApprovalStatus.pending, limit=10)
     servers = (await session.scalars(select(MCPServer).where(
         MCPServer.workspace_id == ws, MCPServer.is_active.is_(True),
-        MCPServer.status.in_([ServerStatus.failed, ServerStatus.reconnecting, ServerStatus.disconnected])))).all()
+        MCPServer.status.in_([ServerStatus.failed, ServerStatus.reconnecting])))).all()
     schedules = (await session.execute(select(Schedule, Pipeline.name).join(Pipeline, Pipeline.id == Schedule.pipeline_id)
                                        .where(Schedule.workspace_id == ws, Schedule.is_active.is_(True))
                                        .order_by(Schedule.next_run_at.nulls_last()).limit(5))).all()

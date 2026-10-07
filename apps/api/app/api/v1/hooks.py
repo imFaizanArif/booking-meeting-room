@@ -6,7 +6,6 @@ import json
 import uuid
 
 from fastapi import APIRouter, Header, Request
-from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DB, Auth, client_ip, rate_limit
@@ -15,6 +14,7 @@ from app.core.errors import NotFound, Unauthenticated, ValidationFailed
 from app.core.security import new_token, verify_signature
 from app.models import Pipeline, PipelineVersion
 from app.ratelimit.limiter import Limit
+from app.schemas.common import Schema
 from app.schemas.runtime import ExecutionOut
 from app.secrets.manager import get_secret_manager
 from app.services import secret_fields
@@ -25,7 +25,7 @@ from app.services.executions import create_execution
 router = APIRouter(tags=["webhooks"])
 
 
-class WebhookSecretOut(BaseModel):
+class WebhookSecretOut(Schema):
     secret: str
     header: str = "X-Agent-Platform-Signature"
     format: str = "t=<unix>,v1=<hex hmac_sha256(secret, '<unix>.' + body)>"

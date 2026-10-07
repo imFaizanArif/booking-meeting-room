@@ -6,12 +6,13 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.enums import EventType
+from app.schemas.common import Schema
 
 
-class ExecutionEventOut(BaseModel):
+class ExecutionEventOut(Schema):
     id: uuid.UUID
     execution_id: uuid.UUID
     seq: int
@@ -23,7 +24,7 @@ class ExecutionEventOut(BaseModel):
     created_at: datetime
 
 
-class WorkspaceEventOut(BaseModel):
+class WorkspaceEventOut(Schema):
     """Notification on the workspace stream (approvals, status changes, server health)."""
 
     type: EventType

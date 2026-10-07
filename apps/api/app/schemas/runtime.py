@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.core.enums import (
     ApprovalKind,
@@ -22,37 +22,37 @@ from app.core.enums import (
     ToolCallStatus,
     TriggerKind,
 )
-from app.schemas.common import ORM
+from app.schemas.common import ORM, Schema
 from app.schemas.pipeline_graph import PipelineGraph
 
 # ---- pipelines ------------------------------------------------------------------------------
 
 
-class PipelineIn(BaseModel):
+class PipelineIn(Schema):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     graph: PipelineGraph | None = None
 
 
-class PipelinePatch(BaseModel):
+class PipelinePatch(Schema):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     is_archived: bool | None = None
 
 
-class PipelineVersionIn(BaseModel):
+class PipelineVersionIn(Schema):
     graph: dict[str, Any] = Field(description="PipelineGraph JSON; validated server-side with node-level errors")
     change_note: str | None = Field(default=None, max_length=500)
 
 
-class GraphIssueOut(BaseModel):
+class GraphIssueOut(Schema):
     message: str
     node_id: str | None = None
     edge_id: str | None = None
     severity: str = "error"
 
 
-class ValidationOut(BaseModel):
+class ValidationOut(Schema):
     ok: bool
     issues: list[GraphIssueOut]
 
@@ -97,12 +97,12 @@ class PipelineDetail(PipelineOut):
     versions: list[PipelineVersionSummary]
 
 
-class RunIn(BaseModel):
+class RunIn(Schema):
     input: dict[str, Any] = Field(default_factory=dict)
     version: int | None = None
 
 
-class NodeTypeOut(BaseModel):
+class NodeTypeOut(Schema):
     type: NodeType
     label: str
     description: str
@@ -223,7 +223,7 @@ class ApprovalDetail(ApprovalOut):
     history: list[ApprovalOut] = Field(default_factory=list, description="Regenerate chain")
 
 
-class DecisionIn(BaseModel):
+class DecisionIn(Schema):
     action: DecisionAction
     edited_arguments: dict[str, Any] | None = None
     edited_data: Any = None
@@ -233,7 +233,7 @@ class DecisionIn(BaseModel):
     confirm: bool = False
 
 
-class ExecutionDetail(BaseModel):
+class ExecutionDetail(Schema):
     execution: ExecutionOut
     nodes: list[ExecutionNodeOut]
     tool_calls: list[ToolCallOut]
@@ -243,14 +243,14 @@ class ExecutionDetail(BaseModel):
     snapshot: dict[str, Any]
 
 
-class ControlIn(BaseModel):
+class ControlIn(Schema):
     action: str = Field(pattern=r"^(pause|resume|cancel|retry)$")
 
 
 # ---- schedules --------------------------------------------------------------------------------
 
 
-class ScheduleIn(BaseModel):
+class ScheduleIn(Schema):
     pipeline_id: uuid.UUID
     name: str = Field(min_length=1, max_length=200)
     kind: ScheduleKind
@@ -308,21 +308,21 @@ class AuditOut(ORM):
     created_at: datetime
 
 
-class DashboardServer(BaseModel):
+class DashboardServer(Schema):
     id: uuid.UUID
     name: str
     status: ServerStatus
     status_message: str | None
 
 
-class DashboardSchedule(BaseModel):
+class DashboardSchedule(Schema):
     id: uuid.UUID
     name: str
     pipeline_name: str
     next_run_at: datetime | None
 
 
-class DashboardOut(BaseModel):
+class DashboardOut(Schema):
     running: list[ExecutionOut]
     pending_approvals: list[ApprovalOut]
     unhealthy_servers: list[DashboardServer]

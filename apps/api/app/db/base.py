@@ -44,6 +44,11 @@ class IdMixin:
 
 
 class TimestampMixin:
+    # Fetch server-generated timestamps with RETURNING on INSERT *and* UPDATE. Without this an
+    # UPDATE flush expires `updated_at` (onupdate=now()), and reading it afterwards triggers a lazy
+    # load, which raises MissingGreenlet under asyncio.
+    __mapper_args__ = {"eager_defaults": True}
+
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
     )

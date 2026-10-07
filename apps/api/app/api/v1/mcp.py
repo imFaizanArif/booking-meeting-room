@@ -6,7 +6,15 @@ from fastapi import APIRouter
 
 from app.api.deps import DB, Auth
 from app.schemas.common import Ok
-from app.schemas.config import DiscoveryOut, MCPServerIn, MCPServerOut, MCPToolBulk, MCPToolOut, MCPToolPatch, TestResult
+from app.schemas.config import (
+    DiscoveryOut,
+    MCPServerIn,
+    MCPServerOut,
+    MCPToolBulk,
+    MCPToolOut,
+    MCPToolPatch,
+    TestResult,
+)
 from app.services import mcp_config as service
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])

@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import Field, HttpUrl
 
 from app.core.enums import (
     IsolationMode,
@@ -18,12 +18,12 @@ from app.core.enums import (
     ServerStatus,
     TransportType,
 )
-from app.schemas.common import ORM, SecretFieldState
+from app.schemas.common import ORM, Schema, SecretFieldState
 
 # ---- LLM providers & models ------------------------------------------------------------------
 
 
-class ProviderIn(BaseModel):
+class ProviderIn(Schema):
     name: str = Field(min_length=1, max_length=200)
     provider_type: ProviderType
     base_url: str | None = Field(default=None, max_length=500)
@@ -35,7 +35,7 @@ class ProviderIn(BaseModel):
     max_concurrency: int | None = Field(default=None, ge=1, le=1000)
 
 
-class ProviderPatch(BaseModel):
+class ProviderPatch(Schema):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     base_url: str | None = None
     api_key: str | None = None
@@ -64,7 +64,7 @@ class ProviderOut(ORM):
     updated_at: datetime
 
 
-class ModelIn(BaseModel):
+class ModelIn(Schema):
     provider_id: uuid.UUID
     model_name: str = Field(min_length=1, max_length=200)
     display_name: str = Field(min_length=1, max_length=200)
@@ -78,7 +78,7 @@ class ModelIn(BaseModel):
     is_active: bool = True
 
 
-class ModelPatch(BaseModel):
+class ModelPatch(Schema):
     model_name: str | None = None
     display_name: str | None = None
     context_window: int | None = Field(default=None, ge=512, le=10_000_000)
@@ -109,7 +109,7 @@ class ModelOut(ORM):
     is_default: bool
 
 
-class TestResult(BaseModel):
+class TestResult(Schema):
     ok: bool
     message: str
     details: dict[str, Any] = Field(default_factory=dict)
@@ -118,7 +118,7 @@ class TestResult(BaseModel):
 # ---- MCP servers & tools ---------------------------------------------------------------------
 
 
-class MCPServerIn(BaseModel):
+class MCPServerIn(Schema):
     name: str = Field(min_length=1, max_length=200)
     slug: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,40}$")
     description: str | None = None
@@ -189,19 +189,19 @@ class MCPToolOut(ORM):
     last_discovered_at: datetime | None
 
 
-class MCPToolPatch(BaseModel):
+class MCPToolPatch(Schema):
     is_enabled: bool | None = None
     requires_approval: bool | None = None
     is_destructive: bool | None = None
     risk_level: RiskLevel | None = None
 
 
-class MCPToolBulk(BaseModel):
+class MCPToolBulk(Schema):
     tool_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
     patch: MCPToolPatch
 
 
-class DiscoveryOut(BaseModel):
+class DiscoveryOut(Schema):
     ok: bool
     message: str
     added: list[str] = Field(default_factory=list)
@@ -213,14 +213,14 @@ class DiscoveryOut(BaseModel):
 # ---- prompts -----------------------------------------------------------------------------------
 
 
-class PromptTemplateIn(BaseModel):
+class PromptTemplateIn(Schema):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     body: str = Field(max_length=200_000)
     change_note: str | None = None
 
 
-class PromptVersionIn(BaseModel):
+class PromptVersionIn(Schema):
     body: str = Field(max_length=200_000)
     change_note: str | None = Field(default=None, max_length=500)
 
@@ -249,19 +249,19 @@ class PromptTemplateDetail(PromptTemplateOut):
     versions: list[PromptVersionOut]
 
 
-class PromptPreviewIn(BaseModel):
+class PromptPreviewIn(Schema):
     body: str = Field(max_length=200_000)
     sample: dict[str, Any] = Field(default_factory=dict, description="Values for input/nodes/item or extra variables")
 
 
-class PromptPreviewOut(BaseModel):
+class PromptPreviewOut(Schema):
     rendered: str | None
     unresolved: list[str]
     error: str | None
     variables: list[str]
 
 
-class PromptVariableIn(BaseModel):
+class PromptVariableIn(Schema):
     key: str = Field(pattern=r"^[a-z_][a-z0-9_]{0,99}$")
     value: str = Field(max_length=100_000)
     description: str | None = Field(default=None, max_length=500)
@@ -285,12 +285,12 @@ class WorkspaceOut(ORM):
     settings: dict[str, Any]
 
 
-class WorkspacePatch(BaseModel):
+class WorkspacePatch(Schema):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     settings: dict[str, Any] | None = None
 
 
-class MemberOut(BaseModel):
+class MemberOut(Schema):
     user_id: uuid.UUID
     email: str
     display_name: str
@@ -298,18 +298,18 @@ class MemberOut(BaseModel):
     last_login_at: datetime | None
 
 
-class MemberIn(BaseModel):
+class MemberIn(Schema):
     email: str = Field(pattern=r"^[^@\s]+@[^@\s]+$", max_length=320)
     display_name: str = Field(min_length=1, max_length=200)
     role: Role
     password: str = Field(min_length=12, max_length=200)
 
 
-class MemberPatch(BaseModel):
+class MemberPatch(Schema):
     role: Role
 
 
-class ChannelIn(BaseModel):
+class ChannelIn(Schema):
     name: str = Field(min_length=1, max_length=200)
     channel_type: NotificationChannelType
     url: HttpUrl | None = Field(default=None, description="Write-only; required on create")
@@ -330,13 +330,13 @@ class ChannelOut(ORM):
     last_delivery_at: datetime | None
 
 
-class SecretIn(BaseModel):
+class SecretIn(Schema):
     name: str = Field(pattern=r"^[A-Za-z0-9_.:-]{1,200}$")
     value: str = Field(min_length=1, max_length=20_000)
     description: str | None = Field(default=None, max_length=500)
 
 
-class SecretOut(BaseModel):
+class SecretOut(Schema):
     id: uuid.UUID
     ref: str
     name: str

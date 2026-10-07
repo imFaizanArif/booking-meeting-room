@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.api.deps import DB, Auth, client_ip, rate_limit
 from app.core.config import get_settings
 from app.core.enums import Role
 from app.ratelimit.limiter import Limit
-from app.schemas.common import Ok
+from app.schemas.common import Ok, Schema
 from app.services import auth as service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class LoginIn(BaseModel):
+class LoginIn(Schema):
     email: str = Field(max_length=320)
     password: str = Field(max_length=200)
 
 
-class MeOut(BaseModel):
+class MeOut(Schema):
     user_id: str
     email: str
     role: Role
