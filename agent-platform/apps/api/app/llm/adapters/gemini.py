@@ -87,8 +87,12 @@ def to_gemini_contents(req: LLMRequest) -> tuple[dict[str, Any] | None, list[dic
                 parts += [{"functionCall": {"name": c.name, "args": c.arguments}} for c in msg.tool_calls]
             contents.append({"role": "model", "parts": parts or [{"text": ""}]})
         elif isinstance(msg, ToolResultMessage):
-            part = {"functionResponse": {"name": names_by_id.get(msg.tool_call_id, msg.name),
-                                         "response": _response_object(msg.content)}}
+            part = {
+                "functionResponse": {
+                    "name": names_by_id.get(msg.tool_call_id, msg.name),
+                    "response": _response_object(msg.content),
+                }
+            }
             prev = contents[-1] if contents else None
             if prev and prev["role"] == "user" and all("functionResponse" in p for p in prev["parts"]):
                 prev["parts"].append(part)
@@ -114,10 +118,14 @@ class GeminiAdapter(HttpAdapter):
         if instruction:
             payload["systemInstruction"] = instruction
         if req.tools:
-            payload["tools"] = [{"functionDeclarations": [
-                {"name": t.name, "description": t.description[:1024], "parametersJsonSchema": t.input_schema}
-                for t in req.tools
-            ]}]
+            payload["tools"] = [
+                {
+                    "functionDeclarations": [
+                        {"name": t.name, "description": t.description[:1024], "parametersJsonSchema": t.input_schema}
+                        for t in req.tools
+                    ]
+                }
+            ]
             payload["toolConfig"] = {"functionCallingConfig": {"mode": _MODES[req.tool_choice]}}
         generation: dict[str, Any] = {}
         if req.temperature is not None:
@@ -150,9 +158,13 @@ class GeminiAdapter(HttpAdapter):
         parts: list[dict[str, Any]] = list((candidate.get("content") or {}).get("parts") or [])
         texts = [p["text"] for p in parts if "text" in p and not p.get("thought")]
         calls = [
-            ToolCallRequest(id=p["functionCall"].get("id") or f"call_{i}", name=p["functionCall"]["name"],
-                            arguments=dict(p["functionCall"].get("args") or {}))
-            for i, p in enumerate(parts) if "functionCall" in p
+            ToolCallRequest(
+                id=p["functionCall"].get("id") or f"call_{i}",
+                name=p["functionCall"]["name"],
+                arguments=dict(p["functionCall"].get("args") or {}),
+            )
+            for i, p in enumerate(parts)
+            if "functionCall" in p
         ]
         finish = candidate.get("finishReason") or ""
         stop = StopReason.tool_use if calls else _FINISH.get(finish, StopReason.other)
@@ -161,8 +173,11 @@ class GeminiAdapter(HttpAdapter):
         usage = body.get("usageMetadata") or {}
         replay = [p for p in parts if not p.get("thought")]
         return LLMResponse(
-            message=AssistantMessage(content="".join(texts) or None, tool_calls=calls,
-                                     provider_state={"provider": "gemini", "model": model, "parts": replay}),
+            message=AssistantMessage(
+                content="".join(texts) or None,
+                tool_calls=calls,
+                provider_state={"provider": "gemini", "model": model, "parts": replay},
+            ),
             stop_reason=stop,
             usage=Usage(
                 input_tokens=int(usage.get("promptTokenCount", 0)),

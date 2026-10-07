@@ -74,11 +74,8 @@ def fit_messages(
         msg = out[i]
         assert isinstance(msg, ToolResultMessage)
         pointer = pointers.get(msg.tool_call_id)
-        out[i] = msg.model_copy(
-            update={
-                "content": f"[older result omitted to fit the context window{'; stored as ' + pointer if pointer else ''}]"
-            }
-        )
+        stored = f"; stored as {pointer}" if pointer else ""
+        out[i] = msg.model_copy(update={"content": f"[older result omitted to fit the context window{stored}]"})
         if total() <= budget.max_input_tokens:
             return out
     return out

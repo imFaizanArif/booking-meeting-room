@@ -54,7 +54,7 @@ log = get_logger(__name__)
 DEMO_PIPELINE = "Job Application Assistant"
 
 
-async def _one(session: AsyncSession, model: Any, **where: Any) -> Any:
+async def _one[M](session: AsyncSession, model: type[M], **where: Any) -> M | None:
     query = select(model)
     for key, value in where.items():
         query = query.where(getattr(model, key) == value)
@@ -85,19 +85,22 @@ async def seed_identity(session: AsyncSession) -> Workspace:
     return ws
 
 
-async def _provider(session: AsyncSession, ws: Workspace, name: str, ptype: ProviderType, base_url: str | None,
-                    active: bool) -> LLMProvider:
+async def _provider(
+    session: AsyncSession, ws: Workspace, name: str, ptype: ProviderType, base_url: str | None, active: bool
+) -> LLMProvider:
     row = await _one(session, LLMProvider, workspace_id=ws.id, name=name)
     if row is None:
-        row = LLMProvider(workspace_id=ws.id, name=name, provider_type=ptype, base_url=base_url, is_active=active,
-                          metadata_={})
+        row = LLMProvider(
+            workspace_id=ws.id, name=name, provider_type=ptype, base_url=base_url, is_active=active, metadata_={}
+        )
         session.add(row)
         await session.flush()
     return row
 
 
-async def _model(session: AsyncSession, ws: Workspace, provider: LLMProvider, model_name: str, display: str,
-                 **kw: Any) -> LLMModel:
+async def _model(
+    session: AsyncSession, ws: Workspace, provider: LLMProvider, model_name: str, display: str, **kw: Any
+) -> LLMModel:
     row = await _one(session, LLMModel, provider_id=provider.id, model_name=model_name)
     if row is None:
         row = LLMModel(workspace_id=ws.id, provider_id=provider.id, model_name=model_name, display_name=display, **kw)
@@ -111,34 +114,82 @@ async def seed_llm(session: AsyncSession, ws: Workspace) -> dict[str, LLMModel]:
     openai = await _provider(session, ws, "OpenAI", ProviderType.openai, "https://api.openai.com/v1", False)
     anthropic = await _provider(session, ws, "Anthropic", ProviderType.anthropic, None, False)
     ollama = await _provider(session, ws, "Ollama (local)", ProviderType.ollama, "http://localhost:11434", False)
-    gemini = await _provider(session, ws, "Google Gemini", ProviderType.gemini,
-                             "https://generativelanguage.googleapis.com/v1beta", False)
+    gemini = await _provider(
+        session, ws, "Google Gemini", ProviderType.gemini, "https://generativelanguage.googleapis.com/v1beta", False
+    )
     models = {
-        "filter": await _model(session, ws, fake, "fake-filter", "Fake · filter model", context_window=32_000,
-                               supports_json_schema=True),
+        "filter": await _model(
+            session, ws, fake, "fake-filter", "Fake · filter model", context_window=32_000, supports_json_schema=True
+        ),
         "writer": await _model(session, ws, fake, "fake-writer", "Fake · writer model", context_window=32_000),
         "opus": await _model(
-            session, ws, anthropic, "claude-opus-5-5", "Claude Opus 5.5", context_window=1_000_000,
-            input_price_per_mtok=Decimal("4"), output_price_per_mtok=Decimal("20"),
-            default_parameters={"max_tokens": 16000, "extras": {"anthropic": {
-                "thinking": {"type": "adaptive"}, "output_config": {"effort": "medium"}, "fallbacks": "default"}}}),
+            session,
+            ws,
+            anthropic,
+            "claude-opus-5-5",
+            "Claude Opus 5.5",
+            context_window=1_000_000,
+            input_price_per_mtok=Decimal("4"),
+            output_price_per_mtok=Decimal("20"),
+            default_parameters={
+                "max_tokens": 16000,
+                "extras": {
+                    "anthropic": {
+                        "thinking": {"type": "adaptive"},
+                        "output_config": {"effort": "medium"},
+                        "fallbacks": "default",
+                    }
+                },
+            },
+        ),
         "sonnet": await _model(
-            session, ws, anthropic, "claude-sonnet-5-5", "Claude Sonnet 5.5", context_window=1_000_000,
-            input_price_per_mtok=Decimal("2"), output_price_per_mtok=Decimal("10"),
-            default_parameters={"max_tokens": 16000, "extras": {"anthropic": {"thinking": {"type": "adaptive"}}}}),
-        "gpt": await _model(session, ws, openai, "gpt-4.1-mini", "GPT-4.1 mini", context_window=1_000_000,
-                            input_price_per_mtok=Decimal("0.4"), output_price_per_mtok=Decimal("1.6")),
-        "gemini_flash": await _model(session, ws, gemini, "gemini-2.5-flash", "Gemini 2.5 Flash",
-                                     context_window=1_048_576, input_price_per_mtok=Decimal("0.30"),
-                                     output_price_per_mtok=Decimal("2.50")),
-        "gemini_pro": await _model(session, ws, gemini, "gemini-2.5-pro", "Gemini 2.5 Pro",
-                                   context_window=1_048_576, input_price_per_mtok=Decimal("1.25"),
-                                   output_price_per_mtok=Decimal("10")),
-        "llama": await _model(session, ws, ollama, "llama3.2", "Llama 3.2 (Ollama)", context_window=128_000,
-                              supports_json_schema=True),
+            session,
+            ws,
+            anthropic,
+            "claude-sonnet-5-5",
+            "Claude Sonnet 5.5",
+            context_window=1_000_000,
+            input_price_per_mtok=Decimal("2"),
+            output_price_per_mtok=Decimal("10"),
+            default_parameters={"max_tokens": 16000, "extras": {"anthropic": {"thinking": {"type": "adaptive"}}}},
+        ),
+        "gpt": await _model(
+            session,
+            ws,
+            openai,
+            "gpt-4.1-mini",
+            "GPT-4.1 mini",
+            context_window=1_000_000,
+            input_price_per_mtok=Decimal("0.4"),
+            output_price_per_mtok=Decimal("1.6"),
+        ),
+        "gemini_flash": await _model(
+            session,
+            ws,
+            gemini,
+            "gemini-2.5-flash",
+            "Gemini 2.5 Flash",
+            context_window=1_048_576,
+            input_price_per_mtok=Decimal("0.30"),
+            output_price_per_mtok=Decimal("2.50"),
+        ),
+        "gemini_pro": await _model(
+            session,
+            ws,
+            gemini,
+            "gemini-2.5-pro",
+            "Gemini 2.5 Pro",
+            context_window=1_048_576,
+            input_price_per_mtok=Decimal("1.25"),
+            output_price_per_mtok=Decimal("10"),
+        ),
+        "llama": await _model(
+            session, ws, ollama, "llama3.2", "Llama 3.2 (Ollama)", context_window=128_000, supports_json_schema=True
+        ),
     }
-    if not await session.scalar(select(LLMModel.id).where(LLMModel.workspace_id == ws.id,
-                                                          LLMModel.is_default.is_(True))):
+    if not await session.scalar(
+        select(LLMModel.id).where(LLMModel.workspace_id == ws.id, LLMModel.is_default.is_(True))
+    ):
         models["writer"].is_default = True
     await session.flush()
     return models
@@ -151,12 +202,33 @@ def _python() -> str:
 async def seed_mcp(session: AsyncSession, ws: Workspace) -> list[MCPServer]:
     jobs_url = os.environ.get("MOCK_JOBS_URL", "http://127.0.0.1:8811/mcp")
     specs = [
-        ("Demo Jobs", "demo_jobs", TransportType.streamable_http, None, [], jobs_url,
-         "Job board: search listings and submit proposals (Streamable HTTP)."),
-        ("Demo Calendar", "demo_calendar", TransportType.stdio, _python(), ["-m", "mock_mcp.calendar_server"], None,
-         "Calendar availability and events (stdio)."),
-        ("Demo GitHub", "demo_github", TransportType.stdio, _python(), ["-m", "mock_mcp.github_server"], None,
-         "Repositories and issues (stdio)."),
+        (
+            "Demo Jobs",
+            "demo_jobs",
+            TransportType.streamable_http,
+            None,
+            [],
+            jobs_url,
+            "Job board: search listings and submit proposals (Streamable HTTP).",
+        ),
+        (
+            "Demo Calendar",
+            "demo_calendar",
+            TransportType.stdio,
+            _python(),
+            ["-m", "mock_mcp.calendar_server"],
+            None,
+            "Calendar availability and events (stdio).",
+        ),
+        (
+            "Demo GitHub",
+            "demo_github",
+            TransportType.stdio,
+            _python(),
+            ["-m", "mock_mcp.github_server"],
+            None,
+            "Repositories and issues (stdio).",
+        ),
     ]
     servers = []
     for name, slug, transport, command, args, url, description in specs:
@@ -201,21 +273,26 @@ PROMPTS = {
         "Selects promising job listings for a freelancer.",
         "You screen freelance job listings for {{ my_name }}.\n"
         "Keep only listings that pay at least {{ target_hourly_rate }} USD per hour and match these skills: "
-        "{{ my_skills }}.\nReturn at most two listings, best first, as JSON."),
+        "{{ my_skills }}.\nReturn at most two listings, best first, as JSON.",
+    ),
     "Proposal writer": (
         "Drafts and submits a proposal with tools. Submission always needs human approval.",
         "You write concise, specific proposals for {{ my_name }}.\n"
         "Resume:\n{{ my_resume }}\n\n"
         "Use the job board tools: read the job with get_job, then submit one proposal with submit_proposal. "
-        "Quote the hourly rate {{ target_hourly_rate }}. Mention one relevant repository by name."),
+        "Quote the hourly rate {{ target_hourly_rate }}. Mention one relevant repository by name.",
+    ),
 }
 
 VARIABLES = {
     "my_name": ("Sam Rivera", "Name used in proposals"),
     "my_skills": ("python, fastapi, postgres, llm, mcp, typescript", "Comma separated skills"),
     "target_hourly_rate": ("85", "Minimum hourly rate in USD"),
-    "my_resume": ("Backend engineer, 9 years. Built agent tooling with MCP and human-in-the-loop review. "
-                  "Python, FastAPI, Postgres, TypeScript.", "Short resume"),
+    "my_resume": (
+        "Backend engineer, 9 years. Built agent tooling with MCP and human-in-the-loop review. "
+        "Python, FastAPI, Postgres, TypeScript.",
+        "Short resume",
+    ),
 }
 
 
@@ -230,9 +307,15 @@ async def seed_prompts(session: AsyncSession, ws: Workspace) -> dict[str, Prompt
             row = PromptTemplate(workspace_id=ws.id, name=name, description=description, latest_version=1)
             session.add(row)
             await session.flush()
-            session.add(PromptTemplateVersion(template_id=row.id, version=1, body=body,
-                                              variables=sorted(referenced_variables(body)),
-                                              change_note="Seeded"))
+            session.add(
+                PromptTemplateVersion(
+                    template_id=row.id,
+                    version=1,
+                    body=body,
+                    variables=sorted(referenced_variables(body)),
+                    change_note="Seeded",
+                )
+            )
         templates[name] = row
     await session.flush()
     return templates
@@ -241,7 +324,7 @@ async def seed_prompts(session: AsyncSession, ws: Workspace) -> dict[str, Prompt
 # Fake-provider scripts (Jinja rendered to JSON per step; see app.llm.adapters.fake).
 FILTER_SCRIPT = [
     '{"json": {"shortlist": {{ ((input.jobs | selectattr("hourly_rate", "ge", input.target_hourly_rate | int)'
-    ' | list)[:2]) | tojson }} }}'
+    " | list)[:2]) | tojson }} }}"
 ]
 ANALYSE_SCRIPT = [
     '{"content": {{ ("Fit for " ~ input.title ~ " (" ~ input.client ~ "): skills " ~ (input.skills | join(", "))'
@@ -263,10 +346,10 @@ WRITER_SCRIPT = [
     ' share a plan within two days.") | tojson }} }}]}'
     '{% elif last_tool_result is mapping and last_tool_result.get("rejected") %}'
     '{"content": {{ ("The proposal was not submitted: " ~ last_tool_result.get("reason", "")) | tojson }} }'
-    '{% else %}'
+    "{% else %}"
     '{"content": {{ ("Submitted proposal " ~ (last_tool_result.get("proposal_id", "") if last_tool_result is mapping'
     ' else "") ~ ".") | tojson }} }'
-    '{% endif %}',
+    "{% endif %}",
     '{% if last_tool_result is mapping and last_tool_result.get("proposal_id") %}'
     '{"content": {{ ("Submitted revised proposal " ~ last_tool_result.get("proposal_id") ~ ".") | tojson }} }'
     '{% else %}{"content": "Finished without submitting."}{% endif %}',
@@ -275,60 +358,154 @@ WRITER_SCRIPT = [
 
 def demo_graph(models: dict[str, LLMModel], templates: dict[str, PromptTemplate]) -> dict[str, Any]:
     shortlist_schema = {
-        "type": "object", "required": ["shortlist"],
-        "properties": {"shortlist": {"type": "array", "maxItems": 5, "items": {
-            "type": "object", "required": ["id", "title", "hourly_rate"],
-            "properties": {"id": {"type": "string"}, "title": {"type": "string"},
-                           "hourly_rate": {"type": "number"}, "skills": {"type": "array"}}}}},
+        "type": "object",
+        "required": ["shortlist"],
+        "properties": {
+            "shortlist": {
+                "type": "array",
+                "maxItems": 5,
+                "items": {
+                    "type": "object",
+                    "required": ["id", "title", "hourly_rate"],
+                    "properties": {
+                        "id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "hourly_rate": {"type": "number"},
+                        "skills": {"type": "array"},
+                    },
+                },
+            }
+        },
     }
     return {
         "nodes": [
-            {"id": "trigger", "type": "trigger", "name": "Daily trigger", "position": {"x": 0, "y": 160},
-             "config": {"input_schema": {"type": "object", "properties": {
-                 "query": {"type": "string", "default": "python"},
-                 "min_hourly_rate": {"type": "integer", "default": 40}}},
-                 "allow_manual": True, "allow_schedule": True, "allow_webhook": True}},
-            {"id": "search_jobs", "type": "mcp_tool", "name": "Search jobs", "position": {"x": 240, "y": 160},
-             "config": {"tool": "demo_jobs__search_jobs",
-                        "arguments": {"query": "=get(input, 'query', 'python')",
-                                      "min_hourly_rate": "=get(input, 'min_hourly_rate', 40)", "limit": 10}}},
-            {"id": "filter", "type": "llm", "name": "Filter listings", "position": {"x": 480, "y": 160},
-             "config": {"model_id": str(models["filter"].id),
-                        "system_prompt": {"template_id": str(templates["Job filter"].id)},
-                        "user_prompt": '{{ {"jobs": nodes.search_jobs.output.jobs, '
-                                       '"target_hourly_rate": target_hourly_rate} | tojson }}',
-                        "output_schema": shortlist_schema,
-                        "provider_extras": {"fake": {"script": FILTER_SCRIPT}}}},
-            {"id": "analyse", "type": "llm", "name": "Analyse each job", "position": {"x": 760, "y": 0},
-             "map": {"over": "nodes.filter.output.shortlist", "concurrency": 4, "item_name": "item"},
-             "config": {"model_id": str(models["filter"].id),
-                        "system_prompt": {"inline": "Summarise how well this job fits {{ my_name }} in two sentences."},
-                        "user_prompt": "{{ item | tojson }}",
-                        "provider_extras": {"fake": {"script": ANALYSE_SCRIPT}}}},
-            {"id": "availability", "type": "mcp_tool", "name": "Check availability", "position": {"x": 760, "y": 160},
-             "map": {"over": "nodes.filter.output.shortlist", "concurrency": 4, "item_name": "item"},
-             "config": {"tool": "demo_calendar__check_availability",
-                        "arguments": {"hours_per_week": "=item.hours_per_week", "weeks": 4}}},
-            {"id": "repos", "type": "mcp_tool", "name": "Find relevant repos", "position": {"x": 760, "y": 320},
-             "map": {"over": "nodes.filter.output.shortlist", "concurrency": 4, "item_name": "item"},
-             "config": {"tool": "demo_github__list_repositories", "arguments": {"topic": "=first(item.skills)"}}},
-            {"id": "has_fit", "type": "condition", "name": "Any job fits?", "position": {"x": 1040, "y": 160},
-             "config": {"expression": "len(nodes.filter.output.shortlist) > 0 and "
-                                      "any_of(pluck(nodes.availability.output, 'fits_all_weeks'))"}},
-            {"id": "draft", "type": "agent", "name": "Draft & submit proposal", "position": {"x": 1300, "y": 100},
-             "config": {"model_id": str(models["writer"].id),
-                        "system_prompt": {"template_id": str(templates["Proposal writer"].id)},
-                        "user_prompt": '{{ {"jobs": nodes.filter.output.shortlist, "analyses": nodes.analyse.output,'
-                                       ' "availability": nodes.availability.output, "repos": nodes.repos.output,'
-                                       ' "rate": target_hourly_rate} | tojson }}',
-                        "tool_allowlist": ["demo_jobs__get_job", "demo_jobs__submit_proposal"],
-                        "max_iterations": 6, "max_tool_calls": 6, "token_budget": 80000,
-                        "provider_extras": {"fake": {"script": WRITER_SCRIPT}}}},
-            {"id": "done", "type": "end", "name": "Result", "position": {"x": 1580, "y": 100},
-             "config": {"output": {"proposal": "=nodes.draft.output", "shortlist": "=nodes.filter.output.shortlist"}}},
-            {"id": "nothing", "type": "end", "name": "No fit", "position": {"x": 1300, "y": 300},
-             "config": {"output": {"message": "No listing fits right now",
-                                   "searched": "=len(nodes.search_jobs.output.jobs)"}}},
+            {
+                "id": "trigger",
+                "type": "trigger",
+                "name": "Daily trigger",
+                "position": {"x": 0, "y": 160},
+                "config": {
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "default": "python"},
+                            "min_hourly_rate": {"type": "integer", "default": 40},
+                        },
+                    },
+                    "allow_manual": True,
+                    "allow_schedule": True,
+                    "allow_webhook": True,
+                },
+            },
+            {
+                "id": "search_jobs",
+                "type": "mcp_tool",
+                "name": "Search jobs",
+                "position": {"x": 240, "y": 160},
+                "config": {
+                    "tool": "demo_jobs__search_jobs",
+                    "arguments": {
+                        "query": "=get(input, 'query', 'python')",
+                        "min_hourly_rate": "=get(input, 'min_hourly_rate', 40)",
+                        "limit": 10,
+                    },
+                },
+            },
+            {
+                "id": "filter",
+                "type": "llm",
+                "name": "Filter listings",
+                "position": {"x": 480, "y": 160},
+                "config": {
+                    "model_id": str(models["filter"].id),
+                    "system_prompt": {"template_id": str(templates["Job filter"].id)},
+                    "user_prompt": '{{ {"jobs": nodes.search_jobs.output.jobs, '
+                    '"target_hourly_rate": target_hourly_rate} | tojson }}',
+                    "output_schema": shortlist_schema,
+                    "provider_extras": {"fake": {"script": FILTER_SCRIPT}},
+                },
+            },
+            {
+                "id": "analyse",
+                "type": "llm",
+                "name": "Analyse each job",
+                "position": {"x": 760, "y": 0},
+                "map": {"over": "nodes.filter.output.shortlist", "concurrency": 4, "item_name": "item"},
+                "config": {
+                    "model_id": str(models["filter"].id),
+                    "system_prompt": {"inline": "Summarise how well this job fits {{ my_name }} in two sentences."},
+                    "user_prompt": "{{ item | tojson }}",
+                    "provider_extras": {"fake": {"script": ANALYSE_SCRIPT}},
+                },
+            },
+            {
+                "id": "availability",
+                "type": "mcp_tool",
+                "name": "Check availability",
+                "position": {"x": 760, "y": 160},
+                "map": {"over": "nodes.filter.output.shortlist", "concurrency": 4, "item_name": "item"},
+                "config": {
+                    "tool": "demo_calendar__check_availability",
+                    "arguments": {"hours_per_week": "=item.hours_per_week", "weeks": 4},
+                },
+            },
+            {
+                "id": "repos",
+                "type": "mcp_tool",
+                "name": "Find relevant repos",
+                "position": {"x": 760, "y": 320},
+                "map": {"over": "nodes.filter.output.shortlist", "concurrency": 4, "item_name": "item"},
+                "config": {"tool": "demo_github__list_repositories", "arguments": {"topic": "=first(item.skills)"}},
+            },
+            {
+                "id": "has_fit",
+                "type": "condition",
+                "name": "Any job fits?",
+                "position": {"x": 1040, "y": 160},
+                "config": {
+                    "expression": "len(nodes.filter.output.shortlist) > 0 and "
+                    "any_of(pluck(nodes.availability.output, 'fits_all_weeks'))"
+                },
+            },
+            {
+                "id": "draft",
+                "type": "agent",
+                "name": "Draft & submit proposal",
+                "position": {"x": 1300, "y": 100},
+                "config": {
+                    "model_id": str(models["writer"].id),
+                    "system_prompt": {"template_id": str(templates["Proposal writer"].id)},
+                    "user_prompt": '{{ {"jobs": nodes.filter.output.shortlist, "analyses": nodes.analyse.output,'
+                    ' "availability": nodes.availability.output, "repos": nodes.repos.output,'
+                    ' "rate": target_hourly_rate} | tojson }}',
+                    "tool_allowlist": ["demo_jobs__get_job", "demo_jobs__submit_proposal"],
+                    "max_iterations": 6,
+                    "max_tool_calls": 6,
+                    "token_budget": 80000,
+                    "provider_extras": {"fake": {"script": WRITER_SCRIPT}},
+                },
+            },
+            {
+                "id": "done",
+                "type": "end",
+                "name": "Result",
+                "position": {"x": 1580, "y": 100},
+                "config": {
+                    "output": {"proposal": "=nodes.draft.output", "shortlist": "=nodes.filter.output.shortlist"}
+                },
+            },
+            {
+                "id": "nothing",
+                "type": "end",
+                "name": "No fit",
+                "position": {"x": 1300, "y": 300},
+                "config": {
+                    "output": {
+                        "message": "No listing fits right now",
+                        "searched": "=len(nodes.search_jobs.output.jobs)",
+                    }
+                },
+            },
         ],
         "edges": [
             {"id": "e1", "source": "trigger", "target": "search_jobs"},
@@ -346,34 +523,58 @@ def demo_graph(models: dict[str, LLMModel], templates: dict[str, PromptTemplate]
     }
 
 
-async def seed_pipeline(session: AsyncSession, ws: Workspace, models: dict[str, LLMModel],
-                        templates: dict[str, PromptTemplate]) -> Pipeline:
+async def seed_pipeline(
+    session: AsyncSession, ws: Workspace, models: dict[str, LLMModel], templates: dict[str, PromptTemplate]
+) -> Pipeline:
     from app.schemas.pipeline_graph import PipelineGraph
 
     graph = PipelineGraph.model_validate(demo_graph(models, templates)).model_dump(mode="json")
     digest = graph_hash(graph)
     pipeline = await _one(session, Pipeline, workspace_id=ws.id, slug="job_application_assistant")
     if pipeline is None:
-        pipeline = Pipeline(workspace_id=ws.id, name=DEMO_PIPELINE, slug="job_application_assistant",
-                            description="Search jobs, shortlist with one model, check calendar and repos, draft with "
-                                        "another model, submit only after human approval.")
+        pipeline = Pipeline(
+            workspace_id=ws.id,
+            name=DEMO_PIPELINE,
+            slug="job_application_assistant",
+            description="Search jobs, shortlist with one model, check calendar and repos, draft with "
+            "another model, submit only after human approval.",
+        )
         session.add(pipeline)
         await session.flush()
     current = await session.get(PipelineVersion, pipeline.latest_version_id) if pipeline.latest_version_id else None
     if current is None or current.graph_hash != digest:
-        version = PipelineVersion(pipeline_id=pipeline.id, version=pipeline.latest_version_number + 1, graph=graph,
-                                  graph_hash=digest, change_note="Seeded demo")
+        version = PipelineVersion(
+            pipeline_id=pipeline.id,
+            version=pipeline.latest_version_number + 1,
+            graph=graph,
+            graph_hash=digest,
+            change_note="Seeded demo",
+        )
         session.add(version)
         await session.flush()
         pipeline.latest_version_id = version.id
         pipeline.latest_version_number = version.version
     if await _one(session, Schedule, pipeline_id=pipeline.id) is None:
-        session.add(Schedule(
-            workspace_id=ws.id, pipeline_id=pipeline.id, name="Weekday mornings", kind=ScheduleKind.cron,
-            cron="45 8 * * 1-5", timezone="Europe/London", input={"query": "python", "min_hourly_rate": 40},
-            is_active=False, next_run_at=next_fire(ScheduleKind.cron, after=utcnow(), cron="45 8 * * 1-5",
-                                                   interval_seconds=None, daily_time=None, timezone="Europe/London"),
-        ))
+        session.add(
+            Schedule(
+                workspace_id=ws.id,
+                pipeline_id=pipeline.id,
+                name="Weekday mornings",
+                kind=ScheduleKind.cron,
+                cron="45 8 * * 1-5",
+                timezone="Europe/London",
+                input={"query": "python", "min_hourly_rate": 40},
+                is_active=False,
+                next_run_at=next_fire(
+                    ScheduleKind.cron,
+                    after=utcnow(),
+                    cron="45 8 * * 1-5",
+                    interval_seconds=None,
+                    daily_time=None,
+                    timezone="Europe/London",
+                ),
+            )
+        )
     await session.flush()
     return pipeline
 
@@ -387,5 +588,10 @@ async def seed_all(session: AsyncSession, *, discover: bool = True) -> dict[str,
     templates = await seed_prompts(session, ws)
     pipeline = await seed_pipeline(session, ws, models, templates)
     await session.commit()
-    return {"workspace_id": str(ws.id), "pipeline_id": str(pipeline.id), "problems": problems,
-            "models": {k: str(v.id) for k, v in models.items()}, "seed_run": str(uuid.uuid4())}
+    return {
+        "workspace_id": str(ws.id),
+        "pipeline_id": str(pipeline.id),
+        "problems": problems,
+        "models": {k: str(v.id) for k, v in models.items()},
+        "seed_run": str(uuid.uuid4()),
+    }

@@ -77,9 +77,7 @@ class ExecutionStatus(StrEnum):
     cancelled = "cancelled"
 
 
-TERMINAL_EXECUTION_STATUSES = frozenset(
-    {ExecutionStatus.completed, ExecutionStatus.cancelled}
-)
+TERMINAL_EXECUTION_STATUSES = frozenset({ExecutionStatus.completed, ExecutionStatus.cancelled})
 ACTIVE_EXECUTION_STATUSES = frozenset(
     {
         ExecutionStatus.queued,

@@ -20,7 +20,6 @@ from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
 
 from app.core.enums import ErrorCode, NodeStatus
 from app.core.errors import AppError
@@ -38,7 +37,7 @@ from app.llm.types import (
 from app.orchestration.nodes.base import node_active, run_with_policy
 from app.orchestration.nodes.llm_tool import parse_structured, system_prompt_for
 from app.orchestration.runtime import RuntimeContext, runtime_from
-from app.orchestration.state import FAILED_HANDLED, GraphState, dump_messages, load_messages
+from app.orchestration.state import FAILED_HANDLED, CompiledPipeline, GraphState, dump_messages, load_messages
 from app.prompts.render import render
 from app.schemas.pipeline_graph import AgentNode, OnReject, PipelineGraph
 from app.tools.router import RouteStatus
@@ -83,7 +82,7 @@ def _finish_output(node: AgentNode, agent: dict[str, Any]) -> Any:
     return output
 
 
-def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledStateGraph:
+def build_agent_subgraph(node: AgentNode, graph: PipelineGraph) -> CompiledPipeline:
     node_id = node.id
     cfg = node.config
 

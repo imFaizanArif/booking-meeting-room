@@ -66,7 +66,7 @@ class RedisEventBus:
                     continue
         finally:
             await pubsub.unsubscribe(*channels)
-            await pubsub.aclose()
+            await pubsub.aclose()  # type: ignore[no-untyped-call]  # redis-py leaves PubSub.aclose unannotated
 
 
 _bus: EventBus | None = None

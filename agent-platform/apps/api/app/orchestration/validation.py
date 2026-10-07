@@ -143,12 +143,12 @@ def validate_graph(graph: PipelineGraph, *, known_tools: set[str] | None = None)
             if not branches & {EdgeBranch.true, EdgeBranch.false}:
                 result.error("Condition needs at least one true or false edge", node_id=node.id)
         if isinstance(node, (LLMNode, AgentNode)):
-            for label, source in (
+            for label, template in (
                 ("user_prompt", node.config.user_prompt),
                 ("system_prompt", node.config.system_prompt.inline or ""),
             ):
                 try:
-                    referenced_variables(source)
+                    referenced_variables(template)
                 except TemplateError as exc:
                     result.error(f"{label}: {exc.message}", node_id=node.id)
         if isinstance(node, AgentNode):

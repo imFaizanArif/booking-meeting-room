@@ -15,7 +15,6 @@ from typing import Any
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
 
 from app.core.enums import NodeStatus, NodeType
 from app.core.errors import ValidationFailed
@@ -32,7 +31,7 @@ from app.orchestration.nodes.simple import (
     TriggerExecutor,
 )
 from app.orchestration.runtime import runtime_from
-from app.orchestration.state import FAILED_HANDLED, GraphState
+from app.orchestration.state import FAILED_HANDLED, CompiledPipeline, GraphState
 from app.orchestration.validation import validate_graph
 from app.schemas.pipeline_graph import AgentNode, PipelineGraph, PipelineNode
 
@@ -81,7 +80,7 @@ def make_node_fn(node: PipelineNode, graph: PipelineGraph) -> Any:
     return run
 
 
-def compile_pipeline(graph: PipelineGraph, checkpointer: BaseCheckpointSaver[Any] | None) -> CompiledStateGraph:
+def compile_pipeline(graph: PipelineGraph, checkpointer: BaseCheckpointSaver[Any] | None) -> CompiledPipeline:
     result = validate_graph(graph)
     if not result.ok:
         raise ValidationFailed(

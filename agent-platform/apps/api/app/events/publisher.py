@@ -83,7 +83,7 @@ async def publish_execution_event(
                     "at": message["created_at"],
                 },
             )
-    except Exception as exc:  # pub/sub loss is tolerated; clients replay from Postgres
+    except Exception as exc:  # noqa: BLE001 - pub/sub loss is tolerated; clients replay from Postgres
         log.warning("event_publish_failed", error=str(exc), event_type=type.value)
     return out
 
@@ -103,5 +103,5 @@ async def publish_workspace_event(
     }
     try:
         await get_event_bus().publish(workspace_channel(workspace_id), message)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - workspace notifications are best effort; REST is the record
         log.warning("event_publish_failed", error=str(exc), event_type=type.value)

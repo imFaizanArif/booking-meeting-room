@@ -60,7 +60,8 @@ def next_fire(
     tz = zone(timezone)
     local_after = after.astimezone(tz)
     if kind == ScheduleKind.cron:
-        return croniter(cron or "* * * * *", local_after).get_next(datetime).astimezone(after.tzinfo)
+        occurrence: datetime = croniter(cron or "* * * * *", local_after).get_next(datetime)
+        return occurrence.astimezone(after.tzinfo)
     if kind == ScheduleKind.interval:
         step = timedelta(seconds=interval_seconds or 3600)
         base = anchor or after

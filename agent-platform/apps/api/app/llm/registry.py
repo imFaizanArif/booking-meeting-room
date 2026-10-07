@@ -41,8 +41,9 @@ def build_provider(config: ProviderConfig) -> LLMProvider:
     return factory(config)
 
 
-def estimate_cost(usage: Usage, input_price_per_mtok: Decimal | float | str,
-                  output_price_per_mtok: Decimal | float | str) -> Decimal:
+def estimate_cost(
+    usage: Usage, input_price_per_mtok: Decimal | float | str, output_price_per_mtok: Decimal | float | str
+) -> Decimal:
     cost = (
         Decimal(usage.input_tokens) * Decimal(str(input_price_per_mtok))
         + Decimal(usage.output_tokens) * Decimal(str(output_price_per_mtok))

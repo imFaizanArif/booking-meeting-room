@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, TypedDict
 
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import TypeAdapter
 
 from app.llm.types import Message
@@ -32,3 +33,7 @@ def dump_messages(messages: list[Any]) -> list[dict[str, Any]]:
 
 def load_messages(raw: list[dict[str, Any]]) -> list[Any]:
     return list(_MESSAGES.validate_python(raw))
+
+
+# What `StateGraph(GraphState).compile()` returns: no runtime context, state in and out.
+type CompiledPipeline = CompiledStateGraph[GraphState, None, GraphState, GraphState]
